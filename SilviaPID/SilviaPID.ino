@@ -4,9 +4,20 @@
 #include <ArduinoOTA.h>
 #include "appconfig.h"
 
+#include <Wire.h>
+#include <U8g2lib.h>
+
+/* ----------------------------------------------------------- */
+
+U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
+
+#define font u8g2_font_logisoso42_tf
+
+/* ----------------------------------------------------------- */
 void setup() {
     Serial.begin(115200);
     Serial.println("Booting");
+
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
     while (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -43,8 +54,20 @@ void setup() {
     Serial.println("Ready");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+
+    Wire.begin();
+    u8g2.begin();    
 }
 
+/* ----------------------------------------------------------- */
+
 void loop() {
+        u8g2.clearBuffer();                    // clear the internal menory
+    u8g2.setFont(font);
+    u8g2.drawStr(0,42,"30s"); // write something to the internal memory
+    u8g2.sendBuffer();                    // transfer internal memory to the display
+
+    delay(1000);
+
     ArduinoOTA.handle();
 }
