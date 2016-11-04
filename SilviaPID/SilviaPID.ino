@@ -11,7 +11,8 @@
 
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
 
-#define font u8g2_font_logisoso42_tf
+#define font_stopwatch u8g2_font_logisoso42_tf
+int stopwatch = 0;
 
 /* ----------------------------------------------------------- */
 void setup() {
@@ -56,16 +57,20 @@ void setup() {
     Serial.println(WiFi.localIP());
 
     Wire.begin();
-    u8g2.begin();    
+    u8g2.begin();  
+
+  
 }
 
 /* ----------------------------------------------------------- */
 
 void loop() {
+    if (stopwatch >= 0) {
         u8g2.clearBuffer();                    // clear the internal menory
-    u8g2.setFont(font);
-    u8g2.drawStr(0,42,"30s"); // write something to the internal memory
-    u8g2.sendBuffer();                    // transfer internal memory to the display
+        u8g2.setFont(font_stopwatch);
+        u8g2.drawStr(0, 42, String(stopwatch--, DEC)); // write something to the internal memory
+        u8g2.sendBuffer();                    // transfer internal memory to the display
+    }
 
     delay(1000);
 
