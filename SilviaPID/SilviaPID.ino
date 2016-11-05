@@ -7,6 +7,9 @@
 #include <Wire.h>
 //#include <U8g2lib.h>
 
+#include "LPD8806.h"
+#include "SPI.h"
+
 /* ----------------------------------------------------------- */
 
 //U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
@@ -20,6 +23,17 @@ int stopwatch = 0;
 
 #define I2C_SLAVE_ADDR  0x26            // i2c slave address (38)
 #define QUERY_ALIVE     1
+
+// STRIP
+#define STRIP_Data      12
+#define STRIP_Clk       13
+#define STRIP_BRIGHTNESS    127
+#define STRIP_COLOR_WHITE   strip.Color(STRIP_BRIGHTNESS/2, STRIP_BRIGHTNESS/2,  STRIP_BRIGHTNESS/2)
+#define STRIP_COLOR_RED     strip.Color(STRIP_BRIGHTNESS, 0, 0)
+#define STRIP_COLOR_GREEN   strip.Color(0, STRIP_BRIGHTNESS, 0)
+int NUM_PIXELS = 8;
+
+LPD8806 strip = LPD8806(NUM_PIXELS, STRIP_Data, STRIP_Clk);
 
 /* ----------------------------------------------------------- */
 void setup() {
@@ -35,7 +49,6 @@ void setup() {
     }
     
     ArduinoOTA.setHostname(host);
-    
     ArduinoOTA.onStart([]() {
         Serial.println("Start");
     });
@@ -68,7 +81,9 @@ void setup() {
     Wire.begin();
     //u8g2.begin();  
 
-  
+    strip.begin();
+    strip.show();       // all OFF  
+    SetLightsAllOneColour(STRIP_COLOR_WHITE);
 }
 
 /* ----------------------------------------------------------- */
@@ -108,3 +123,12 @@ void loop() {
 
     ArduinoOTA.handle();
 }
+
+void SetLightsAllOneColour(uint32_t c) {
+
+    for (int i=0; i<NUM_PIXELS; i++) {
+        strip.setPixelColor(i, c);
+    }
+    strip.show();
+}
+
