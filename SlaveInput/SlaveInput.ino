@@ -1,33 +1,38 @@
-#include <Wire.h>
+#include <TinyWireS.h>
 
-int led = 1;
-int deviceID = 8;
+int led_pin = 1;
+int input_pin = 3;
+int I2C_SLAVE_ADDR = 0x26;
+
+#define LED_ON  HIGH
+#define LED_OFF  LOW
 
 /* ---------------------------------------------- */
 
 void setup() {
   
-    pinMode(led, OUTPUT);
-    Wire.begin(deviceID);
-    Wire.onReceive(receiveEvent)
+    pinMode(led_pin, OUTPUT);
+    pinMode(input_pin, INPUT);
+    digitalWrite(led_pin, LED_ON);
+    TinyWireS.begin(I2C_SLAVE_ADDR);
+    TinyWireS.onRequest(requestEvent);
 }
 
 /* ---------------------------------------------- */
 
 void loop() {
 
-//    digitalWrite(led, HIGH); 
-//    delay(2000);
-//    digitalWrite(led, LOW);
-//    delay(1000);
+    TinyWireS_stop_check();
 }
 
 /* ---------------------------------------------- */
 
-void receiveEvent(int howMany) {
-    while (1 < Wire.available()) {
-        char c = Wire.read();
-    }
-    int x = Wire.read();
+void requestEvent()
+{  
+    digitalWrite(led_pin, LED_ON);
+    int val = digitalRead(input_pin);
+    TinyWireS.send(val);
+    digitalWrite(led_pin, LED_OFF);
 }
-    
+
+
