@@ -5,14 +5,21 @@
 #include "appconfig.h"
 
 #include <Wire.h>
-#include <U8g2lib.h>
+//#include <U8g2lib.h>
 
 /* ----------------------------------------------------------- */
 
-U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
+//U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
 
-#define font_stopwatch u8g2_font_logisoso42_tf
+//#define font_stopwatch u8g2_font_logisoso42_tf
 int stopwatch = 0;
+
+#define led_pin         0
+#define LED_ON          LOW
+#define LED_OFF         HIGH
+
+#define I2C_SLAVE_ADDR  0x26            // i2c slave address (38)
+#define QUERY_ALIVE     1
 
 /* ----------------------------------------------------------- */
 void setup() {
@@ -28,7 +35,6 @@ void setup() {
     }
     
     ArduinoOTA.setHostname(host);
-    //ArduinoOTA.setPassword((const char *)"123");
     
     ArduinoOTA.onStart([]() {
         Serial.println("Start");
@@ -51,13 +57,16 @@ void setup() {
     });
 
     ArduinoOTA.begin();
+
+    pinMode(led_pin, OUTPUT);
+    digitalWrite(led_pin, LED_ON);
     
     Serial.println("Ready");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
     Wire.begin();
-    u8g2.begin();  
+    //u8g2.begin();  
 
   
 }
@@ -65,11 +74,34 @@ void setup() {
 /* ----------------------------------------------------------- */
 
 void loop() {
-    if (stopwatch >= 0) {
-        u8g2.clearBuffer();                    // clear the internal menory
-        u8g2.setFont(font_stopwatch);
-        u8g2.drawStr(0, 42, String(stopwatch--, DEC)); // write something to the internal memory
-        u8g2.sendBuffer();                    // transfer internal memory to the display
+//    if (stopwatch >= 0) {
+//        u8g2.clearBuffer();                    // clear the internal menory
+//        u8g2.setFont(font_stopwatch);
+//        u8g2.drawStr(0, 42, String(stopwatch--, DEC)); // write something to the internal memory
+//        u8g2.sendBuffer();                    // transfer internal memory to the display
+//    }
+
+    // check slave devices
+    Wire.requestFrom(I2C_SLAVE_ADDR, 1);
+
+    bool found = false;
+    char responseByte = 0;
+
+    while (Wire.available()) {
+        found = true;
+        responseByte = Wire.read();
+        Serial.println(responseByte);
+    }
+    if (found) {
+        Serial.print("Found SLAVE value: ");
+        if (responseByte == 1)
+            Serial.println("1");
+        else 
+            Serial.println("0");
+        digitalWrite(led_pin, LED_ON);
+    } else {
+        Serial.println("Missing SLAVE!!!");
+        digitalWrite(led_pin, LED_OFF);
     }
 
     delay(1000);
