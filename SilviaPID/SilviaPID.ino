@@ -25,18 +25,23 @@ int stopwatch = 0;
 #define QUERY_ALIVE     1
 
 // STRIP
-#define STRIP_Data      12
-#define STRIP_Clk       13
+#define STRIP_Data      13
+#define STRIP_Clk       12
 #define STRIP_BRIGHTNESS    127
-#define STRIP_COLOR_WHITE   strip.Color(STRIP_BRIGHTNESS/2, STRIP_BRIGHTNESS/2,  STRIP_BRIGHTNESS/2)
+#define STRIP_COLOR_WHITE   strip.Color(STRIP_BRIGHTNESS, STRIP_BRIGHTNESS,  STRIP_BRIGHTNESS)
 #define STRIP_COLOR_RED     strip.Color(STRIP_BRIGHTNESS, 0, 0)
 #define STRIP_COLOR_GREEN   strip.Color(0, STRIP_BRIGHTNESS, 0)
-int NUM_PIXELS = 8;
+int NUM_PIXELS = 4;
 
 LPD8806 strip = LPD8806(NUM_PIXELS, STRIP_Data, STRIP_Clk);
 
 /* ----------------------------------------------------------- */
 void setup() {
+
+    strip.begin();
+    strip.show();       // all OFF  
+    ShowLightsAllOneColour(STRIP_COLOR_WHITE);
+    
     Serial.begin(115200);
     Serial.println("Booting");
 
@@ -55,11 +60,9 @@ void setup() {
     ArduinoOTA.onEnd([]() {
         Serial.println("\nEnd");
     });
-    
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
         Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
     });
-    
     ArduinoOTA.onError([](ota_error_t error) {
         Serial.printf("Error[%u]: ", error);
         if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
@@ -79,52 +82,18 @@ void setup() {
     Serial.println(WiFi.localIP());
 
     Wire.begin();
-    //u8g2.begin();  
-
-    strip.begin();
-    strip.show();       // all OFF  
-    SetLightsAllOneColour(STRIP_COLOR_WHITE);
 }
 
 /* ----------------------------------------------------------- */
 
 void loop() {
-//    if (stopwatch >= 0) {
-//        u8g2.clearBuffer();                    // clear the internal menory
-//        u8g2.setFont(font_stopwatch);
-//        u8g2.drawStr(0, 42, String(stopwatch--, DEC)); // write something to the internal memory
-//        u8g2.sendBuffer();                    // transfer internal memory to the display
-//    }
 
-    // check slave devices
-    Wire.requestFrom(I2C_SLAVE_ADDR, 1);
-
-    bool found = false;
-    char responseByte = 0;
-
-    while (Wire.available()) {
-        found = true;
-        responseByte = Wire.read();
-        Serial.println(responseByte);
-    }
-    if (found) {
-        Serial.print("Found SLAVE value: ");
-        if (responseByte == 1)
-            Serial.println("1");
-        else 
-            Serial.println("0");
-        digitalWrite(led_pin, LED_ON);
-    } else {
-        Serial.println("Missing SLAVE!!!");
-        digitalWrite(led_pin, LED_OFF);
-    }
-
-    delay(1000);
+    delay(100);
 
     ArduinoOTA.handle();
 }
 
-void SetLightsAllOneColour(uint32_t c) {
+void ShowLightsAllOneColour(uint32_t c) {
 
     for (int i=0; i<NUM_PIXELS; i++) {
         strip.setPixelColor(i, c);
