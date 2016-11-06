@@ -9,11 +9,6 @@
 
 /* ----------------------------------------------------------- */
 
-//U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
-
-//#define font_stopwatch u8g2_font_logisoso42_tf
-int stopwatch = 0;
-
 #define led_pin         0
 #define LED_ON          LOW
 #define LED_OFF         HIGH
@@ -42,11 +37,9 @@ void setup() {
     ArduinoOTA.onEnd([]() {
         Serial.println("\nEnd");
     });
-    
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
         Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
     });
-    
     ArduinoOTA.onError([](ota_error_t error) {
         Serial.printf("Error[%u]: ", error);
         if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
@@ -55,7 +48,6 @@ void setup() {
         else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
         else if (error == OTA_END_ERROR) Serial.println("End Failed");
     });
-
     ArduinoOTA.begin();
 
     pinMode(led_pin, OUTPUT);
@@ -66,9 +58,6 @@ void setup() {
     Serial.println(WiFi.localIP());
 
     Wire.begin();
-    //u8g2.begin();  
-
-  
 }
 
 /* ----------------------------------------------------------- */
