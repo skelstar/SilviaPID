@@ -1,8 +1,10 @@
-//#include <ESP8266WiFi.h>
-//#include <ESP8266mDNS.h>
-//#include <WiFiUdp.h>
-//#include <ArduinoOTA.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 #include <appconfig.h>
+
+const char* host = "SilviaHub";
 
 void setup() {
 
@@ -10,10 +12,37 @@ void setup() {
     Serial.println();
     Serial.println("Start!");
 
-    delay(1000);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+        Serial.println("Connection Failed! Rebooting...");
+        delay(5000);
+        ESP.restart();
+    }
+    
+    ArduinoOTA.setHostname(host);
+    ArduinoOTA.onStart([]() {
+        Serial.println("Start");
+    });
+    ArduinoOTA.onEnd([]() {
+        Serial.println("\nEnd");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
 
+    ArduinoOTA.begin();
+    
     pinMode(2, OUTPUT);
-    digitalWrite(2, LOW);
+    digitalWrite(2, HIGH);
 }
 
 void loop() {
@@ -24,20 +53,20 @@ void loop() {
         packet = Serial.readString();
     }
 
-    if (packet.length() > 0) {
-        if (isValidPacket(packet)) {
-            Serial.println("Valid!");
-            Serial.print("Payload: ");
-            Serial.println(getPayload(packet));
-        }
-        else {
-            Serial.println("ERROR");
-        }
+    if (isValidPacket(packet)) {
+        Serial.print(ACK + getPayload(packet) + ETX);
+        digitalWrite(2, LOW);
+        delay(100);
+        digitalWrite(2, HIGH);
     }
+
+    ArduinoOTA.handle();
 }
 
 bool isValidPacket(String packet) {
-    if (packet.startsWith(STX) && 
+    packet.trim();
+    if (packet.length() > 0 &&
+        packet.startsWith(STX) && 
         packet.endsWith(ETX))
         return true;
     return false;       
