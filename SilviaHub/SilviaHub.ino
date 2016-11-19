@@ -8,7 +8,7 @@ const char* host = "SilviaHub";
 
 void setup() {
 
-    Serial.begin(115200);
+    Serial.begin(9600);
     Serial.println();
     Serial.println("Start!");
 
@@ -53,21 +53,31 @@ void loop() {
         packet = Serial.readString();
     }
 
-    if (isValidPacket(packet)) {
-        Serial.print(ACK + getPayload(packet) + ETX);
+    if (packet.length() > 0)
+    {
         digitalWrite(2, LOW);
         delay(100);
         digitalWrite(2, HIGH);
+        
+        if (isValidPacket(packet)) {
+    
+            Serial.print(ACK + getPayload(packet) + ETX);
+            digitalWrite(2, LOW);
+            delay(100);
+            digitalWrite(2, HIGH);
+        }
+        else {
+            Serial.print(" ERROR: "); Serial.println(packet);
+        }
     }
-
     ArduinoOTA.handle();
 }
 
 bool isValidPacket(String packet) {
     packet.trim();
     if (packet.length() > 0 &&
-        packet.startsWith(STX) && 
-        packet.endsWith(ETX))
+        packet.indexOf(STX) >= 0 && 
+        packet.indexOf(ETX) >= 3)
         return true;
     return false;       
 }
