@@ -2,7 +2,7 @@
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include "appconfig.h"
+#include <appconfig.h>
 
 #include <Wire.h>
 //#include <U8g2lib.h>
