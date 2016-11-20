@@ -78,15 +78,13 @@ void loop() {
 
     String payload = "4321";
 
-    Serial.println(STX + payload + ETX);
+    Serial.print("STX"); Serial.print(payload); Serial.print("ETX");
 
-    //long start = millis();
-    //while (start > millis()-100);    
-    
-    while (Serial.available() > 0) {
-        
-        Serial.print(Serial.readString());
-    }
+    delay(500);
+    //while (Serial.available() > 0) {
+    //    
+    //    Serial.print(Serial.read());
+    //}
 }
 
 

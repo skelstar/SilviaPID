@@ -1,10 +1,15 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
 #include <appconfig.h>
+#include <SoftwareSerial.h>
+#include <ctype.h>
 
-const char* host = "SilviaHub";
+#define LED_PIN 2
+
+char inData[20]; // Allocate some space for the string
+char inChar=-1; // Where to store the character read
+byte idx = 0; // Index into array; where to store the character
+
+
+SoftwareSerial swSer(D5, D6, false, 256);
 
 void setup() {
 
@@ -12,69 +17,44 @@ void setup() {
     Serial.println();
     Serial.println("Start!");
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-        Serial.println("Connection Failed! Rebooting...");
-        delay(5000);
-        ESP.restart();
-    }
-    
-    ArduinoOTA.setHostname(host);
-    ArduinoOTA.onStart([]() {
-        Serial.println("Start");
-    });
-    ArduinoOTA.onEnd([]() {
-        Serial.println("\nEnd");
-    });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-        Serial.printf("Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-        else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
+    swSer.begin(9600);
 
-    ArduinoOTA.begin();
     
-    pinMode(2, OUTPUT);
-    digitalWrite(2, HIGH);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, HIGH);
 }
 
 void loop() {
-    String packet;
-    String payload;
-    
-    while (Serial.available() > 0) {
-        packet = Serial.readString();
+    String packet = "";
+    char character;
+
+    while (swSer.available() > 0) {
+        delay(3);
+        character = swSer.read();
+        packet += character;
     }
 
-    if (packet.length() > 0)
-    {
-        digitalWrite(2, LOW);
-        delay(100);
-        digitalWrite(2, HIGH);
-        
+    packet.trim();
+    if (packet != "") {
         if (isValidPacket(packet)) {
-    
-            Serial.print(ACK + getPayload(packet) + ETX);
-            digitalWrite(2, LOW);
-            delay(100);
-            digitalWrite(2, HIGH);
+            Serial.print("Valid");
+            Serial.print("Payload: ");
+            Serial.println(getPayload(packet));
         }
         else {
-            Serial.print(" ERROR: "); Serial.println(packet);
+            Serial.println(packet);
         }
+        flashLed();
     }
-    ArduinoOTA.handle();
+}
+
+void flashLed() {
+   digitalWrite(LED_PIN, LOW);
+   delay(100);
+   digitalWrite(LED_PIN, HIGH);
 }
 
 bool isValidPacket(String packet) {
-    packet.trim();
     if (packet.length() > 0 &&
         packet.indexOf(STX) >= 0 && 
         packet.indexOf(ETX) >= 3)
