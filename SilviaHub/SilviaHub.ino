@@ -1,15 +1,8 @@
-#include <appconfig.h>
-#include <SoftwareSerial.h>
+#include "appconfig.h"
+#include "wificonfig.h"
 #include <ctype.h>
 
 #define LED_PIN 2
-
-char inData[20]; // Allocate some space for the string
-char inChar=-1; // Where to store the character read
-byte idx = 0; // Index into array; where to store the character
-
-
-//SoftwareSerial swSer(D5, D6, false, 256);
 
 void setup() {
 
@@ -17,9 +10,6 @@ void setup() {
     Serial.println();
     Serial.println("Start!");
 
-    //swSer.begin(9600);
-
-    
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);
 }
@@ -38,8 +28,9 @@ void loop() {
     packet.trim();
     if (packet != "") {
         if (isValidPacket(packet)) {
-            getPayload(packet, payload, sizeof(payload));
-            Serial.println(payload);
+            readPayload(packet, payload, sizeof(payload));
+            getInputs(payload);
+            sendResponse(payload);
             flashLed();
         }
     }
@@ -59,12 +50,34 @@ bool isValidPacket(String packet) {
     return false;       
 }
 
-void getPayload(String packet, char* result, int resultSize) {
+void readPayload(String packet, char* result, int resultSize) {
     int start = packet.indexOf(STX) + 3;
     int end1 = packet.indexOf(ETX);
 
     String pl = packet.substring(start, end1);
-    //Serial.println(pl);
     pl.toCharArray(result, resultSize);    
+}
+
+void sendResponse(char* payload) {
+    getInputs(payload);
+    Serial.print(ACK); Serial.print(payload); Serial.println(ETX);
+}
+
+void getInputs(char* reg) {
+    reg[WATERLEVEL] = getInput(WATERLEVEL);
+    reg[COFFEESWITCH] = getInput(COFFEESWITCH);
+    reg[HEATINGLIGHT] = getInput(HEATINGLIGHT);
+    reg[PUMP] = getInput(PUMP);
+    reg[BOILER] = getInput(BOILER);
+}
+
+char getInput(int input) {
+    switch (input) {
+        case WATERLEVEL: return ON;
+        case COFFEESWITCH: return ON;
+        case HEATINGLIGHT: return OFF;
+        case PUMP: return NA;
+        case BOILER: return NA;
+    }
 }
 

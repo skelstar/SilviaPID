@@ -3,13 +3,10 @@
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include <appconfig.h>
+#include "appconfig.h"
+#include "wificonfig.h"
 
 #include <Wire.h>
-
-//#define SoftwareRX    14
-//#define SoftwareTX    12
-//SoftwareSerial hubSerial(SoftwareRX, SoftwareTX, false, 256);
 
 const char* host = "SilviaPID";
 
@@ -26,8 +23,6 @@ void setup() {
     
     Serial.begin(9600);
     Serial.println("Booting");
-
-    //hubSerial.begin(9600);
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
@@ -76,15 +71,11 @@ void loop() {
 
     ArduinoOTA.handle();
 
-    String payload = "4321";
+    String payload = "XXX00";
 
     Serial.print("STX"); Serial.print(payload); Serial.print("ETX");
 
     delay(500);
-    //while (Serial.available() > 0) {
-    //    
-    //    Serial.print(Serial.read());
-    //}
 }
 
 
