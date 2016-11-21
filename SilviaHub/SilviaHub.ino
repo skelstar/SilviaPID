@@ -9,7 +9,7 @@ char inChar=-1; // Where to store the character read
 byte idx = 0; // Index into array; where to store the character
 
 
-SoftwareSerial swSer(D5, D6, false, 256);
+//SoftwareSerial swSer(D5, D6, false, 256);
 
 void setup() {
 
@@ -17,7 +17,7 @@ void setup() {
     Serial.println();
     Serial.println("Start!");
 
-    swSer.begin(9600);
+    //swSer.begin(9600);
 
     
     pinMode(LED_PIN, OUTPUT);
@@ -27,24 +27,21 @@ void setup() {
 void loop() {
     String packet = "";
     char character;
+    char payload[20];
 
-    while (swSer.available() > 0) {
+    while (Serial.available() > 0) {
         delay(3);
-        character = swSer.read();
+        character = Serial.read();
         packet += character;
     }
 
     packet.trim();
     if (packet != "") {
         if (isValidPacket(packet)) {
-            Serial.print("Valid");
-            Serial.print("Payload: ");
-            Serial.println(getPayload(packet));
+            getPayload(packet, payload, sizeof(payload));
+            Serial.println(payload);
+            flashLed();
         }
-        else {
-            Serial.println(packet);
-        }
-        flashLed();
     }
 }
 
@@ -62,9 +59,12 @@ bool isValidPacket(String packet) {
     return false;       
 }
 
-String getPayload(String packet) {
+void getPayload(String packet, char* result, int resultSize) {
     int start = packet.indexOf(STX) + 3;
     int end1 = packet.indexOf(ETX);
-    return packet.substring(start, end1);
+
+    String pl = packet.substring(start, end1);
+    //Serial.println(pl);
+    pl.toCharArray(result, resultSize);    
 }
 
