@@ -1,48 +1,28 @@
+#include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include <appconfig.h>
+#include <EventManager.h>
+#include "appconfig.h"
+#include "wificonfig.h"
 
 #include <Wire.h>
-//#include <U8g2lib.h>
 
-#include "LPD8806.h"
-#include "SPI.h"
+const char* host = "SilviaPID";
 
 /* ----------------------------------------------------------- */
 
-//U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
-
-//#define font_stopwatch u8g2_font_logisoso42_tf
 int stopwatch = 0;
 
 #define led_pin         0
 #define LED_ON          LOW
 #define LED_OFF         HIGH
 
-#define I2C_SLAVE_ADDR  0x26            // i2c slave address (38)
-#define QUERY_ALIVE     1
-
-// STRIP
-#define STRIP_Data      13
-#define STRIP_Clk       12
-#define STRIP_BRIGHTNESS    127
-#define STRIP_COLOR_WHITE   strip.Color(STRIP_BRIGHTNESS, STRIP_BRIGHTNESS,  STRIP_BRIGHTNESS)
-#define STRIP_COLOR_RED     strip.Color(STRIP_BRIGHTNESS, 0, 0)
-#define STRIP_COLOR_GREEN   strip.Color(0, STRIP_BRIGHTNESS, 0)
-int NUM_PIXELS = 4;
-
-LPD8806 strip = LPD8806(NUM_PIXELS, STRIP_Data, STRIP_Clk);
-
 /* ----------------------------------------------------------- */
 void setup() {
-
-    strip.begin();
-    strip.show();       // all OFF  
-    ShowLightsAllOneColour(STRIP_COLOR_WHITE);
     
-    Serial.begin(115200);
+    Serial.begin(9600);
     Serial.println("Booting");
 
     WiFi.mode(WIFI_STA);
@@ -91,13 +71,12 @@ void loop() {
     delay(100);
 
     ArduinoOTA.handle();
+
+    String payload = "XXX00";
+
+    Serial.print("STX"); Serial.print(payload); Serial.print("ETX");
+
+    delay(500);
 }
 
-void ShowLightsAllOneColour(uint32_t c) {
-
-    for (int i=0; i<NUM_PIXELS; i++) {
-        strip.setPixelColor(i, c);
-    }
-    strip.show();
-}
 
