@@ -1,8 +1,11 @@
 #include "appconfig.h"
-#include "wificonfig.h"
 #include <ctype.h>
 
-#define LED_PIN 2
+#define LED_PIN             D4
+
+#define WATER_LEVEL_PIN     D0
+#define COFFEE_SWITCH_PIN   D5
+#define HEATING_LIGHT_PIN   D6
 
 void setup() {
 
@@ -12,6 +15,10 @@ void setup() {
 
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);
+
+    pinMode(WATER_LEVEL_PIN, INPUT);
+    pinMode(COFFEE_SWITCH_PIN, INPUT);
+    pinMode(HEATING_LIGHT_PIN, INPUT);
 }
 
 void loop() {
@@ -64,20 +71,32 @@ void sendResponse(char* payload) {
 }
 
 void getInputs(char* reg) {
-    reg[WATERLEVEL] = getInput(WATERLEVEL);
-    reg[COFFEESWITCH] = getInput(COFFEESWITCH);
-    reg[HEATINGLIGHT] = getInput(HEATINGLIGHT);
+    reg[WATER_LEVEL] = getInput(WATER_LEVEL);
+    reg[COFFEE_SWITCH] = getInput(COFFEE_SWITCH);
+    reg[HEATING_LIGHT] = getInput(HEATING_LIGHT);
     reg[PUMP] = getInput(PUMP);
     reg[BOILER] = getInput(BOILER);
 }
 
 char getInput(int input) {
     switch (input) {
-        case WATERLEVEL: return ON;
-        case COFFEESWITCH: return ON;
-        case HEATINGLIGHT: return OFF;
-        case PUMP: return NA;
-        case BOILER: return NA;
+        case WATER_LEVEL: 
+            return parseInput(digitalRead(WATER_LEVEL_PIN));
+        case COFFEE_SWITCH: 
+            return parseInput(digitalRead(COFFEE_SWITCH_PIN));
+        case HEATING_LIGHT: 
+            return parseInput(digitalRead(HEATING_LIGHT_PIN));
+        case PUMP: 
+            return NA;
+        case BOILER: 
+            return NA;
     }
+}
+
+char parseInput(bool result) {
+    if (result == HIGH)
+        return ON;
+     else 
+        return OFF;
 }
 

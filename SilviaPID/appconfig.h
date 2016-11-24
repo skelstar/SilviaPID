@@ -6,14 +6,16 @@ const char* ACK = "ACK";
 
 const char ON	= '1';
 const char OFF	= '0';
-const char NA	= 'X';
+const char NA	= '-';
 
 // payload register
-#define WATERLEVEL		0
-#define COFFEESWITCH 	1
-#define HEATINGLIGHT	2
+#define WATERLEVEL		0   // BLUE
+#define COFFEESWITCH 	1   // GREEN
+#define HEATINGLIGHT	2   // RED
 #define PUMP			3
 #define BOILER			4
 
 //#define STEAMSWITCH 	2
 //#define WATERSWITCH 	3
+
+

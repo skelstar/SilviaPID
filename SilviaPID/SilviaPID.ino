@@ -19,11 +19,15 @@ int stopwatch = 0;
 #define LED_ON          LOW
 #define LED_OFF         HIGH
 
+SoftwareSerial hubSerial(12, 13);   // RX, TX
+
 /* ----------------------------------------------------------- */
 void setup() {
     
-    Serial.begin(9600);
+    Serial.begin(115200);
     Serial.println("Booting");
+
+    hubSerial.begin(9600);
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
@@ -68,15 +72,44 @@ void setup() {
 
 void loop() {
 
-    delay(100);
-
     ArduinoOTA.handle();
 
-    String payload = "XXX00";
+    String packet = "";
+    char character;
+    char payload[20];
 
-    Serial.print("STX"); Serial.print(payload); Serial.print("ETX");
+    while (hubSerial.available() > 0) {
+        delay(3);
+        character = hubSerial.read();
+        packet += character;
+        setLedOn(true);
+    }
+    hubSerial.flush();
 
-    delay(500);
+    packet.trim();
+    if (packet != "") {
+        Serial.println(packet);
+    }
+    
+    //Serial.flush();
+    //delay(400);
+
+    setLedOn(false);
+    String cmd = "XXX00";
+
+    hubSerial.print(STX); hubSerial.print(cmd); hubSerial.print(ETX);
+    hubSerial.flush();
+
+    delay(100);
+}
+
+void setLedOn(bool on) {
+    if (on) {
+        digitalWrite(led_pin, LED_ON);
+    }
+    else {
+        digitalWrite(led_pin, LED_OFF);
+    }
 }
 
 
