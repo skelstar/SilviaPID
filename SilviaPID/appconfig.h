@@ -8,6 +8,8 @@ const char ON	= '1';
 const char OFF	= '0';
 const char NA	= '-';
 
+#define PAYLOAD_SIZE    5
+
 // payload register
 #define WATER		0   // BLUE
 #define COFFEE 	        1   // GREEN

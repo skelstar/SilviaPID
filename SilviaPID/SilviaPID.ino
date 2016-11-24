@@ -20,7 +20,8 @@ const char* host = "SilviaPID";
 
 LPD8806 strip = LPD8806(statusNumLeds, statusDataPin, statusClkPin);
 
-Channel channels[3] = {
+#define NUM_CHANNELS    3
+Channel channels[NUM_CHANNELS] = {
                         { strip.Color(0, 127, 0), OFF, 0 }, // WATER
                         { strip.Color(0, 0, 127), OFF, 0 }, // COFFEE
                         { strip.Color(127, 0, 0), OFF, 0 }  // HEATING
@@ -105,7 +106,7 @@ void loop() {
     packet.trim();
     if (packet != "") {
         if (isValidPacket(packet)) {
-            getPayload(packet, payload, sizeof(payload));
+            getPayload(packet, payload, PAYLOAD_SIZE);
             Serial.println(payload);
             processPacket(payload);
         }
@@ -140,7 +141,7 @@ bool isValidPacket(String packet) {
 }
 
 void getPayload(String packet, char* result, int resultSize) {
-    int start = packet.indexOf(STX) + 3;
+    int start = packet.indexOf(ACK) + 3;
     int end1 = packet.indexOf(ETX);
 
     String pl = packet.substring(start, end1);
@@ -152,8 +153,7 @@ void processPacket(String packet) {
     if (packet == "")
         return; 
 
-    for (int i = 0; i < sizeof(channels); i++) {
-
+    for (int i = 0; i < NUM_CHANNELS; i++) {
         if (packet[i] == ON) {
             strip.setPixelColor(i, channels[i].color);
         } else {
