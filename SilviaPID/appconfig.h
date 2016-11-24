@@ -9,13 +9,21 @@ const char OFF	= '0';
 const char NA	= '-';
 
 // payload register
-#define WATERLEVEL		0   // BLUE
-#define COFFEESWITCH 	1   // GREEN
-#define HEATINGLIGHT	2   // RED
+#define WATER		0   // BLUE
+#define COFFEE 	        1   // GREEN
+#define HEATING	2   // RED
 #define PUMP			3
 #define BOILER			4
 
 //#define STEAMSWITCH 	2
 //#define WATERSWITCH 	3
+
+
+struct Channel {
+    //int index;
+    uint32_t color;
+    char state;
+    int pin;
+};
 
 

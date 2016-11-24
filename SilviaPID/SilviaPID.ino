@@ -1,3 +1,4 @@
+#include <LPD8806.h>
 #include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
@@ -11,9 +12,23 @@
 
 const char* host = "SilviaPID";
 
-/* ----------------------------------------------------------- */
+// Status Strip
 
-int stopwatch = 0;
+#define statusDataPin   0
+#define statusClkPin    15
+#define statusNumLeds   6
+
+LPD8806 strip = LPD8806(statusNumLeds, statusDataPin, statusClkPin);
+
+Channel channels[3] = {
+                        { strip.Color(0, 127, 0), OFF, 0 }, // WATER
+                        { strip.Color(0, 0, 127), OFF, 0 }, // COFFEE
+                        { strip.Color(127, 0, 0), OFF, 0 }  // HEATING
+                      };
+
+uint32_t BLANK_COLOUR = strip.Color(0, 0, 0);
+
+/* ----------------------------------------------------------- */
 
 #define led_pin         0
 #define LED_ON          LOW
@@ -23,6 +38,9 @@ SoftwareSerial hubSerial(12, 13);   // RX, TX
 
 /* ----------------------------------------------------------- */
 void setup() {
+
+    strip.begin();
+    strip.show();
     
     Serial.begin(115200);
     Serial.println("Booting");
@@ -71,36 +89,87 @@ void setup() {
 /* ----------------------------------------------------------- */
 
 void loop() {
+    
+    char payload[20];
 
     ArduinoOTA.handle();
 
-    String packet = "";
-    char character;
-    char payload[20];
+    setLedOn(false);
 
+    transmitPacket("XXX00");
+
+    delay(100);
+
+    String packet = receiveResponse();
+
+    packet.trim();
+    if (packet != "") {
+        if (isValidPacket(packet)) {
+            getPayload(packet, payload, sizeof(payload));
+            Serial.println(payload);
+            processPacket(payload);
+        }
+    }
+}
+
+void transmitPacket(String command) {
+    
+    hubSerial.print(STX); hubSerial.print(command); hubSerial.print(ETX);
+    hubSerial.flush();
+}
+
+String receiveResponse() {
+
+    String packet = "";
     while (hubSerial.available() > 0) {
         delay(3);
-        character = hubSerial.read();
+        char character = hubSerial.read();
         packet += character;
         setLedOn(true);
     }
     hubSerial.flush();
+    return packet;
+}
 
-    packet.trim();
-    if (packet != "") {
-        Serial.println(packet);
-    }
+bool isValidPacket(String packet) {
+    if (packet.length() > 0 &&
+        packet.indexOf(ACK) >= 0 && 
+        packet.indexOf(ETX) >= 3)
+        return true;
+    return false;       
+}
+
+void getPayload(String packet, char* result, int resultSize) {
+    int start = packet.indexOf(STX) + 3;
+    int end1 = packet.indexOf(ETX);
+
+    String pl = packet.substring(start, end1);
+    pl.toCharArray(result, resultSize);    
+}
+
+void processPacket(String packet) {
     
-    //Serial.flush();
-    //delay(400);
+    if (packet == "")
+        return; 
 
-    setLedOn(false);
-    String cmd = "XXX00";
+    for (int i = 0; i < sizeof(channels); i++) {
 
-    hubSerial.print(STX); hubSerial.print(cmd); hubSerial.print(ETX);
-    hubSerial.flush();
+        if (packet[i] == ON) {
+            strip.setPixelColor(i, channels[i].color);
+        } else {
+            strip.setPixelColor(i, BLANK_COLOUR);
+        }
+    }
+    strip.show();
+    
+    return;    
+}
 
-    delay(100);
+void blankStrip() {
+    for (int i=0; i<strip.numPixels(); i++) {
+        strip.setPixelColor(i, 0, 0, 0);
+    }
+    strip.show();    
 }
 
 void setLedOn(bool on) {

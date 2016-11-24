@@ -17,3 +17,11 @@ const char NA	= '-';
 
 //#define STEAMSWITCH 	2
 //#define WATERSWITCH 	3
+
+struct Channel {
+    //int index;
+    uint32_t color;
+    char state;
+    int pin;
+}
+
