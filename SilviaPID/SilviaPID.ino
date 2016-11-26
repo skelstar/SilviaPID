@@ -1,4 +1,6 @@
 #include <LPD8806.h>
+#include <rgb_lcd.h>
+#include <Wire.h>
 #include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
@@ -11,6 +13,10 @@
 #include <Wire.h>
 
 const char* host = "SilviaPID";
+
+// RGB LCD
+
+rgb_lcd lcd;
 
 // Status Strip
 
@@ -45,6 +51,12 @@ void setup() {
     
     Serial.begin(115200);
     Serial.println("Booting");
+
+    lcd.begin(16, 2);
+    lcd.setRGB(0, 0, 255);
+
+    lcd.print("hello World");
+    lcd.blink();
 
     hubSerial.begin(9600);
 
