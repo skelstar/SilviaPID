@@ -1,7 +1,6 @@
 #include <LPD8806.h>
 #include <rgb_lcd.h>
 #include <Wire.h>
-#include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
@@ -11,8 +10,6 @@
 #include "wificonfig.h"
 
 #include <Wire.h>
-
-const char* host = "SilviaPID";
 
 // RGB LCD
 
@@ -41,25 +38,152 @@ uint32_t BLANK_COLOUR = strip.Color(0, 0, 0);
 #define LED_ON          LOW
 #define LED_OFF         HIGH
 
-SoftwareSerial hubSerial(12, 13);   // RX, TX
-
 /* ----------------------------------------------------------- */
 void setup() {
 
     strip.begin();
     strip.show();
     
-    Serial.begin(115200);
+    Serial.begin(9600);
     Serial.println("Booting");
 
     lcd.begin(16, 2);
-    lcd.setRGB(0, 0, 255);
+    lcd.setRGB(255, 0, 0);
 
-    lcd.print("hello World");
-    lcd.blink();
+//             0123456789012345
+    lcd.print("   Silvia PID");
 
-    hubSerial.begin(9600);
+    setupOTA("SilviaPID");
 
+    pinMode(led_pin, OUTPUT);
+    digitalWrite(led_pin, LED_ON);
+    
+    Serial.println("Ready");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+
+    Wire.begin();
+}
+
+/* ----------------------------------------------------------- */
+
+void loop() {
+    
+    char payload[20];
+
+    ArduinoOTA.handle();
+
+    setLedOn(false);
+
+    transmitPacket("XXX00");
+
+    //delay(100);
+
+    String packet;
+
+    delay(100);        
+    
+    packet = receiveResponse();
+    
+    packet.trim();
+     
+    if (packet != "") {
+        if (isValidPacket(packet)) {
+            getPayload(packet, payload, PAYLOAD_SIZE);
+            Serial.println(payload);
+            processPacket(payload);
+        } else {
+            Serial.print("Not valid: '"); Serial.print(packet); Serial.println("'");
+        }            
+    }
+
+    delay(900);
+}
+
+void transmitPacket(String command) {
+    
+    Serial.print(STX); Serial.print(command); Serial.println(ETX);
+    Serial.flush();
+}
+
+String receiveResponse() {
+
+    String packet = "";
+    while (Serial.available() > 0) {
+        //delay(10);
+        char character = Serial.read();
+        packet += character;
+        setLedOn(true);
+    }
+    Serial.flush();
+    return packet;
+}
+
+bool isValidPacket(String packet) {
+    if (packet.length() > 0 &&
+        packet.indexOf(ACK) >= 0 && 
+        packet.indexOf(ETX) >= 3)
+        return true;
+    return false;       
+}
+
+void getPayload(String packet, char* result, int resultSize) {
+    int start = packet.indexOf(ACK) + 3;
+    int end1 = packet.indexOf(ETX);
+
+    String pl = packet.substring(start, end1);
+    pl.toCharArray(result, resultSize);    
+}
+
+void processPacket(String packet) {
+    
+    if (packet == "")
+        return; 
+
+    for (int i = 0; i < NUM_CHANNELS; i++) {
+
+        if (i == WATER) {
+            if (packet[i] == ON) {
+                lcd.setCursor(1, 0);
+                lcd.print("Water Low");
+            } else {
+                lcd.setCursor(1, 0);
+                lcd.print("         ");
+            }
+        }
+        else {
+//            if (packet[i] == ON) {
+//                strip.setPixelColor(i, channels[i].color);
+//            else if (packet[i] == ON) {
+//                strip.setPixelColor(i, channels[i].color);
+//            } else {
+//                strip.setPixelColor(i, BLANK_COLOUR);
+//            }
+        }
+    }
+    strip.show();
+    
+    return;    
+}
+
+void blankStrip() {
+    for (int i=0; i<strip.numPixels(); i++) {
+        strip.setPixelColor(i, 0, 0, 0);
+    }
+    strip.show();    
+}
+
+void setLedOn(bool on) {
+    if (on) {
+        digitalWrite(led_pin, LED_ON);
+    }
+    else {
+        digitalWrite(led_pin, LED_OFF);
+    }
+}
+
+void setupOTA(char* host) {
+    
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
     while (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -88,109 +212,4 @@ void setup() {
     });
 
     ArduinoOTA.begin();
-
-    pinMode(led_pin, OUTPUT);
-    digitalWrite(led_pin, LED_ON);
-    
-    Serial.println("Ready");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-
-    Wire.begin();
 }
-
-/* ----------------------------------------------------------- */
-
-void loop() {
-    
-    char payload[20];
-
-    ArduinoOTA.handle();
-
-    setLedOn(false);
-
-    transmitPacket("XXX00");
-
-    delay(100);
-
-    String packet = receiveResponse();
-
-    packet.trim();
-    if (packet != "") {
-        if (isValidPacket(packet)) {
-            getPayload(packet, payload, PAYLOAD_SIZE);
-            Serial.println(payload);
-            processPacket(payload);
-        }
-    }
-}
-
-void transmitPacket(String command) {
-    
-    hubSerial.print(STX); hubSerial.print(command); hubSerial.print(ETX);
-    hubSerial.flush();
-}
-
-String receiveResponse() {
-
-    String packet = "";
-    while (hubSerial.available() > 0) {
-        delay(3);
-        char character = hubSerial.read();
-        packet += character;
-        setLedOn(true);
-    }
-    hubSerial.flush();
-    return packet;
-}
-
-bool isValidPacket(String packet) {
-    if (packet.length() > 0 &&
-        packet.indexOf(ACK) >= 0 && 
-        packet.indexOf(ETX) >= 3)
-        return true;
-    return false;       
-}
-
-void getPayload(String packet, char* result, int resultSize) {
-    int start = packet.indexOf(ACK) + 3;
-    int end1 = packet.indexOf(ETX);
-
-    String pl = packet.substring(start, end1);
-    pl.toCharArray(result, resultSize);    
-}
-
-void processPacket(String packet) {
-    
-    if (packet == "")
-        return; 
-
-    for (int i = 0; i < NUM_CHANNELS; i++) {
-        if (packet[i] == ON) {
-            strip.setPixelColor(i, channels[i].color);
-        } else {
-            strip.setPixelColor(i, BLANK_COLOUR);
-        }
-    }
-    strip.show();
-    
-    return;    
-}
-
-void blankStrip() {
-    for (int i=0; i<strip.numPixels(); i++) {
-        strip.setPixelColor(i, 0, 0, 0);
-    }
-    strip.show();    
-}
-
-void setLedOn(bool on) {
-    if (on) {
-        digitalWrite(led_pin, LED_ON);
-    }
-    else {
-        digitalWrite(led_pin, LED_OFF);
-    }
-}
-
-

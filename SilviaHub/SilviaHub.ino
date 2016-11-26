@@ -1,17 +1,27 @@
 #include "appconfig.h"
-#include <ctype.h>
+#include "wificonfig.h"
 
-#define LED_PIN             D4
+#include <SoftwareSerial.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 
-#define WATER_LEVEL_PIN     D0
-#define COFFEE_SWITCH_PIN   D5
-#define HEATING_LIGHT_PIN   D6
+#define LED_PIN             0
+
+#define WATER_LEVEL_PIN     14
+#define COFFEE_SWITCH_PIN   12
+#define HEATING_LIGHT_PIN   13
+
+SoftwareSerial pidSerial(12, 13);   // RX, TX
 
 void setup() {
 
-    Serial.begin(9600);
-    Serial.println();
-    Serial.println("Start!");
+    pidSerial.begin(9600);
+    Serial.begin(115200);
+    Serial.println("Silvia HUB Start!");
+
+    setupOTA("SilviaHUB");
 
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);
@@ -26,19 +36,23 @@ void loop() {
     char character;
     char payload[20];
 
-    while (Serial.available() > 0) {
+    while (pidSerial.available() > 0) {
         delay(3);
-        character = Serial.read();
+        character = pidSerial.read();
         packet += character;
     }
 
     packet.trim();
     if (packet != "") {
         if (isValidPacket(packet)) {
+            Serial.print(packet);
             readPayload(packet, payload, sizeof(payload));
             getInputs(payload);
             sendResponse(payload);
             flashLed();
+        } else {
+            Serial.print(packet);
+            Serial.println(" : invalid");
         }
     }
 }
@@ -67,7 +81,8 @@ void readPayload(String packet, char* result, int resultSize) {
 
 void sendResponse(char* payload) {
     getInputs(payload);
-    Serial.print(ACK); Serial.print(payload); Serial.println(ETX);
+    Serial.print(" -> sending: ");
+    pidSerial.print(ACK); pidSerial.print(payload); pidSerial.println(ETX);
 }
 
 void getInputs(char* reg) {
@@ -98,5 +113,37 @@ char parseInput(bool result) {
         return ON;
      else 
         return OFF;
+}
+
+void setupOTA(char* host) {
+    
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+        Serial.println("Connection Failed! Rebooting...");
+        delay(5000);
+        ESP.restart();
+    }
+    
+    ArduinoOTA.setHostname(host);
+    ArduinoOTA.onStart([]() {
+        Serial.println("Start");
+    });
+    ArduinoOTA.onEnd([]() {
+        Serial.println("\nEnd");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+
+    ArduinoOTA.begin();
 }
 
