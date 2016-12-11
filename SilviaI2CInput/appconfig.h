@@ -10,6 +10,7 @@ const char NA	= '-';
 
 #define MASTER_I2C      1
 #define HUB_I2C         8
+#define WATER_I2C       9
 #define PAYLOAD_SIZE    5
 
 // payload register

@@ -120,14 +120,34 @@ void loop() {
 
     ArduinoOTA.handle();
 
-    getInputsFromHub(payload);
+    getWaterLevel(payload);
+
+    //getInputsFromHub(payload);
     
-    processPacket(payload);
+    //processPacket(payload);
 
     if (stateChanged())
         toggleLcdOnlineChar(state);
 
     delay(200);
+}
+
+int getWaterLevel(char* reg) {
+
+    Wire.requestFrom(WATER_I2C, 1);
+
+    int i = 0;
+    while (Wire.available()) {
+        byte c = Wire.read();
+        Serial.print("Recieved: ");
+        if (c == 1) {
+            Serial.println("1");
+        } else if (c == 0) {
+            Serial.println("0");
+        } else {
+            Serial.println("?");
+        }
+    }
 }
 
 bool stateChanged() {
