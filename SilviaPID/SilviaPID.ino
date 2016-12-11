@@ -15,22 +15,62 @@
 
 rgb_lcd lcd;
 
+byte heart[8] = {
+    0b00000,
+    0b00000,
+    0b01010,
+    0b11111,
+    0b11111,
+    0b01110,
+    0b00100,
+    0b00000
+};
+
+byte coffee1[8] = {
+    0b00100,
+    0b00100,
+    0b10001,
+    0b10001,
+    0b10001,
+    0b10001,
+    0b10001,
+    0b11111    
+};
+
+byte coffee2[8] = {
+    0b00000,
+    0b00100,
+    0b10001,
+    0b10001,
+    0b10001,
+    0b11111,
+    0b11111,
+    0b11111    
+};
+
+byte coffee3[8] = {
+    0b00000,
+    0b00000,
+    0b10001,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111    
+};
+
 // Status Strip
 
 #define statusDataPin   0
 #define statusClkPin    15
 #define statusNumLeds   6
 
-LPD8806 strip = LPD8806(statusNumLeds, statusDataPin, statusClkPin);
-
 #define NUM_CHANNELS    3
 Channel channels[NUM_CHANNELS] = {
-                        { strip.Color(0, 127, 0), OFF, 0 }, // WATER
-                        { strip.Color(0, 0, 127), OFF, 0 }, // COFFEE
-                        { strip.Color(127, 0, 0), OFF, 0 }  // HEATING
+                        { 0, OFF, 0 }, // WATER
+                        { 0, OFF, 0 }, // COFFEE
+                        { 0, OFF, 0 }  // HEATING
                       };
-
-uint32_t BLANK_COLOUR = strip.Color(0, 0, 0);
 
 /* ----------------------------------------------------------- */
 
@@ -38,20 +78,27 @@ uint32_t BLANK_COLOUR = strip.Color(0, 0, 0);
 #define LED_ON          LOW
 #define LED_OFF         HIGH
 
+bool state = 1;
+long ticks = 0;
+
+int counter = 1;
+
 /* ----------------------------------------------------------- */
 void setup() {
-
-    strip.begin();
-    strip.show();
     
     Serial.begin(9600);
     Serial.println("Booting");
 
     lcd.begin(16, 2);
     lcd.setRGB(255, 0, 0);
-
+#if 1
+    lcd.createChar(0, heart);
+    lcd.createChar(1, coffee1);
+    lcd.createChar(2, coffee2);
+    lcd.createChar(3, coffee3);
+#endif
 //             0123456789012345
-    lcd.print("   Silvia PID");
+    lcd.print("   Silvia PID   ");
 
     setupOTA("SilviaPID");
 
@@ -73,66 +120,41 @@ void loop() {
 
     ArduinoOTA.handle();
 
-    setLedOn(false);
-
-    transmitPacket("XXX00");
-
-    //delay(100);
-
-    String packet;
-
-    delay(100);        
+    getInputsFromHub(payload);
     
-    packet = receiveResponse();
-    
-    packet.trim();
-     
-    if (packet != "") {
-        if (isValidPacket(packet)) {
-            getPayload(packet, payload, PAYLOAD_SIZE);
-            Serial.println(payload);
-            processPacket(payload);
-        } else {
-            Serial.print("Not valid: '"); Serial.print(packet); Serial.println("'");
-        }            
-    }
+    processPacket(payload);
 
-    delay(900);
+    if (stateChanged())
+        toggleLcdOnlineChar(state);
+
+    delay(200);
 }
 
-void transmitPacket(String command) {
+bool stateChanged() {
     
-    Serial.print(STX); Serial.print(command); Serial.println(ETX);
-    Serial.flush();
-}
-
-String receiveResponse() {
-
-    String packet = "";
-    while (Serial.available() > 0) {
-        //delay(10);
-        char character = Serial.read();
-        packet += character;
-        setLedOn(true);
-    }
-    Serial.flush();
-    return packet;
-}
-
-bool isValidPacket(String packet) {
-    if (packet.length() > 0 &&
-        packet.indexOf(ACK) >= 0 && 
-        packet.indexOf(ETX) >= 3)
+    if (ticks < millis() - 500) {
+        state = !state;
+        ticks = millis();
         return true;
-    return false;       
+    }
+    return false;
 }
 
-void getPayload(String packet, char* result, int resultSize) {
-    int start = packet.indexOf(ACK) + 3;
-    int end1 = packet.indexOf(ETX);
+void getInputsFromHub(char* reg) {
 
-    String pl = packet.substring(start, end1);
-    pl.toCharArray(result, resultSize);    
+    Wire.requestFrom(HUB_I2C, PAYLOAD_SIZE);
+    char payload[PAYLOAD_SIZE];
+
+    int i = 0;
+    while (Wire.available()) {
+        char c = Wire.read();
+        if (i == 0)
+            Serial.print("Payload: '");
+        Serial.print(c);
+        reg[i++] = c;
+    }
+    if (i > 0)
+        Serial.println("' end");
 }
 
 void processPacket(String packet) {
@@ -144,41 +166,44 @@ void processPacket(String packet) {
 
         if (i == WATER) {
             if (packet[i] == ON) {
-                lcd.setCursor(1, 0);
+                lcd.setCursor(3, LCD_ROW_BOTTOM);
                 lcd.print("Water Low");
+                lcd.setRGB(0, 0, 255);  // BLUE
+                
             } else {
-                lcd.setCursor(1, 0);
+                lcd.setCursor(3, LCD_ROW_BOTTOM);
                 lcd.print("         ");
+                lcd.setRGB(0, 255, 0);  // GREEN
             }
         }
         else {
-//            if (packet[i] == ON) {
-//                strip.setPixelColor(i, channels[i].color);
-//            else if (packet[i] == ON) {
-//                strip.setPixelColor(i, channels[i].color);
-//            } else {
-//                strip.setPixelColor(i, BLANK_COLOUR);
-//            }
         }
     }
-    strip.show();
-    
     return;    
 }
 
-void blankStrip() {
-    for (int i=0; i<strip.numPixels(); i++) {
-        strip.setPixelColor(i, 0, 0, 0);
+void toggleLcdOnlineChar(bool state) {
+    
+    lcd.setCursor(15, LCD_ROW_BOTTOM);
+    if (state == 1) {
+        lcd.write((unsigned char)0);
+    } else {
+        lcd.print(' ');
     }
-    strip.show();    
-}
 
-void setLedOn(bool on) {
-    if (on) {
-        digitalWrite(led_pin, LED_ON);
-    }
-    else {
-        digitalWrite(led_pin, LED_OFF);
+    lcd.setCursor(14, LCD_ROW_BOTTOM);
+    if (state == 1) {
+        if (counter == 1) {
+            lcd.write(1);
+        } else if (counter == 2) {
+            lcd.write(2);
+        } else if (counter == 3) {
+            lcd.write(3);
+        } else if (counter > 3) {
+            lcd.print(' ');
+            counter = -1;
+        }
+        counter++;
     }
 }
 

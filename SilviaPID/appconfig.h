@@ -8,6 +8,11 @@ const char ON	= '1';
 const char OFF	= '0';
 const char NA	= '-';
 
+#define LCD_ROW_TOP     0
+#define LCD_ROW_BOTTOM  1
+
+#define MASTER_I2C      1
+#define HUB_I2C         8
 #define PAYLOAD_SIZE    5
 
 // payload register
