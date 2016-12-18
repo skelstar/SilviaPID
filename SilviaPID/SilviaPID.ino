@@ -71,6 +71,10 @@ Channel channels[NUM_CHANNELS] = {
                         { 0, OFF, 0 }, // COFFEE
                         { 0, OFF, 0 }  // HEATING
                       };
+                      // 0123456789012345
+const char* LCD_WATER_LOW = "   Water Low!   ";
+const char* LCD_OK        = "       Ok       ";
+const char* LCD_ERROR    = "     ERROR!     ";
 
 /* ----------------------------------------------------------- */
 
@@ -120,8 +124,24 @@ void loop() {
 
     ArduinoOTA.handle();
 
-    getWaterLevel(payload);
-
+    int waterlevel = getWaterLevel(payload);
+    if (waterlevel == 0) {
+        lcd.setCursor(0, LCD_ROW_BOTTOM);
+        //         0123456789012345
+        lcd.print(LCD_WATER_LOW);
+        lcd.setRGB(0, 0, 255);  // BLUE  
+    } else if (waterlevel == 1) {
+        lcd.setCursor(0, LCD_ROW_BOTTOM);
+        //         0123456789012345
+        lcd.print(LCD_OK);
+        lcd.setRGB(0, 255, 0);  // GREEN
+    } else {
+        lcd.setCursor(0, LCD_ROW_BOTTOM);
+        //         0123456789012345
+        lcd.print(LCD_ERROR);
+        lcd.setRGB(255, 0, 0);  // RED
+    }
+    
     //getInputsFromHub(payload);
     
     //processPacket(payload);
@@ -142,10 +162,13 @@ int getWaterLevel(char* reg) {
         Serial.print("Recieved: ");
         if (c == 1) {
             Serial.println("1");
+            return 1;
         } else if (c == 0) {
             Serial.println("0");
+            return 0;
         } else {
             Serial.println("?");
+            return -1;
         }
     }
 }
