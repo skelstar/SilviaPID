@@ -1,5 +1,5 @@
+#include <Adafruit_NeoPixel.h>
 #include <LPD8806.h>
-#include <rgb_lcd.h>
 #include <Wire.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
@@ -11,59 +11,22 @@
 
 #include <Wire.h>
 
-// RGB LCD
+// --- Status Strip ---
 
-rgb_lcd lcd;
+#define PIN   15
+#define NUMPIXELS   8
+Adafruit_NeoPixel statusStrip = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ400);
 
-byte heart[8] = {
-    0b00000,
-    0b00000,
-    0b01010,
-    0b11111,
-    0b11111,
-    0b01110,
-    0b00100,
-    0b00000
-};
+#define STATUS_WATER_LEVEL  0
+#define STATUS_BUS_ERROR    1
+//#define STATUS_
+//#define STATUS_
+//#define STATUS_
 
-byte coffee1[8] = {
-    0b00100,
-    0b00100,
-    0b10001,
-    0b10001,
-    0b10001,
-    0b10001,
-    0b10001,
-    0b11111    
-};
+uint32_t STATUS_COLOUR_OFF = statusStrip.Color(0, 0, 0);
+uint32_t STATUS_WATER_LEVEL_COLOUR = statusStrip.Color(0, 0, 255);
+uint32_t STATUS_BUS_ERROR_COLOUR = statusStrip.Color(255, 0, 0);
 
-byte coffee2[8] = {
-    0b00000,
-    0b00100,
-    0b10001,
-    0b10001,
-    0b10001,
-    0b11111,
-    0b11111,
-    0b11111    
-};
-
-byte coffee3[8] = {
-    0b00000,
-    0b00000,
-    0b10001,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111    
-};
-
-// Status Strip
-
-#define statusDataPin   0
-#define statusClkPin    15
-#define statusNumLeds   6
 
 #define NUM_CHANNELS    3
 Channel channels[NUM_CHANNELS] = {
@@ -71,10 +34,9 @@ Channel channels[NUM_CHANNELS] = {
                         { 0, OFF, 0 }, // COFFEE
                         { 0, OFF, 0 }  // HEATING
                       };
-                      // 0123456789012345
-const char* LCD_WATER_LOW = "   Water Low!   ";
-const char* LCD_OK        = "       Ok       ";
-const char* LCD_ERROR    = "     ERROR!     ";
+
+/* DEBUG MODE */
+#define WATER_LEVEL_DEBUG_PIN   16                      
 
 /* ----------------------------------------------------------- */
 
@@ -93,17 +55,6 @@ void setup() {
     Serial.begin(9600);
     Serial.println("Booting");
 
-    lcd.begin(16, 2);
-    lcd.setRGB(255, 0, 0);
-#if 1
-    lcd.createChar(0, heart);
-    lcd.createChar(1, coffee1);
-    lcd.createChar(2, coffee2);
-    lcd.createChar(3, coffee3);
-#endif
-//             0123456789012345
-    lcd.print("   Silvia PID   ");
-
     setupOTA("SilviaPID");
 
     pinMode(led_pin, OUTPUT);
@@ -112,6 +63,8 @@ void setup() {
     Serial.println("Ready");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+
+    statusStrip.begin();
 
     Wire.begin();
 }
@@ -125,29 +78,16 @@ void loop() {
     ArduinoOTA.handle();
 
     int waterlevel = getWaterLevel(payload);
-    if (waterlevel == 0) {
-        lcd.setCursor(0, LCD_ROW_BOTTOM);
-        //         0123456789012345
-        lcd.print(LCD_WATER_LOW);
-        lcd.setRGB(0, 0, 255);  // BLUE  
-    } else if (waterlevel == 1) {
-        lcd.setCursor(0, LCD_ROW_BOTTOM);
-        //         0123456789012345
-        lcd.print(LCD_OK);
-        lcd.setRGB(0, 255, 0);  // GREEN
-    } else {
-        lcd.setCursor(0, LCD_ROW_BOTTOM);
-        //         0123456789012345
-        lcd.print(LCD_ERROR);
-        lcd.setRGB(255, 0, 0);  // RED
+    if (waterlevel == -1) {
+        setStatus(STATUS_BUS_ERROR, 0);
+        waterlevel = getDebugWaterLevel();
     }
+    Serial.print("Water: "); Serial.println(waterlevel);
+    setStatus(STATUS_WATER_LEVEL, waterlevel);
     
     //getInputsFromHub(payload);
     
     //processPacket(payload);
-
-    if (stateChanged())
-        toggleLcdOnlineChar(state);
 
     delay(200);
 }
@@ -170,6 +110,31 @@ int getWaterLevel(char* reg) {
             Serial.println("?");
             return -1;
         }
+    }
+}
+
+int getDebugWaterLevel() {
+    pinMode(WATER_LEVEL_DEBUG_PIN, INPUT);
+    digitalWrite(WATER_LEVEL_DEBUG_PIN, HIGH);  // turn on pull-up resistor
+    return digitalRead(WATER_LEVEL_DEBUG_PIN);
+}
+
+void setStatus(int statusBit, int val) {
+
+    switch (statusBit) {
+        case STATUS_WATER_LEVEL:
+            if (val == 1) {
+                statusStrip.setPixelColor(STATUS_WATER_LEVEL, STATUS_WATER_LEVEL_COLOUR);
+            }
+            else {
+                statusStrip.setPixelColor(STATUS_WATER_LEVEL, STATUS_COLOUR_OFF);
+            }
+            statusStrip.show();
+            break;
+        case STATUS_BUS_ERROR:
+            statusStrip.setPixelColor(STATUS_BUS_ERROR, STATUS_BUS_ERROR_COLOUR);
+            statusStrip.show();
+            break;
     }
 }
 
@@ -209,45 +174,19 @@ void processPacket(String packet) {
 
         if (i == WATER) {
             if (packet[i] == ON) {
-                lcd.setCursor(3, LCD_ROW_BOTTOM);
-                lcd.print("Water Low");
-                lcd.setRGB(0, 0, 255);  // BLUE
-                
+//                lcd.setCursor(3, LCD_ROW_BOTTOM);
+//                lcd.print("Water Low");
+//                lcd.setRGB(0, 0, 255);  // BLUE
             } else {
-                lcd.setCursor(3, LCD_ROW_BOTTOM);
-                lcd.print("         ");
-                lcd.setRGB(0, 255, 0);  // GREEN
+//                lcd.setCursor(3, LCD_ROW_BOTTOM);
+//                lcd.print("         ");
+//                lcd.setRGB(0, 255, 0);  // GREEN
             }
         }
         else {
         }
     }
     return;    
-}
-
-void toggleLcdOnlineChar(bool state) {
-    
-    lcd.setCursor(15, LCD_ROW_BOTTOM);
-    if (state == 1) {
-        lcd.write((unsigned char)0);
-    } else {
-        lcd.print(' ');
-    }
-
-    lcd.setCursor(14, LCD_ROW_BOTTOM);
-    if (state == 1) {
-        if (counter == 1) {
-            lcd.write(1);
-        } else if (counter == 2) {
-            lcd.write(2);
-        } else if (counter == 3) {
-            lcd.write(3);
-        } else if (counter > 3) {
-            lcd.print(' ');
-            counter = -1;
-        }
-        counter++;
-    }
 }
 
 void setupOTA(char* host) {
