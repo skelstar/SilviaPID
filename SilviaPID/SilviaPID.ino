@@ -13,9 +13,9 @@
 
 // --- Status Strip ---
 
-#define PIN   15
-#define NUMPIXELS   8
-Adafruit_NeoPixel statusStrip = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ400);
+#define PIXEL_PIN       15
+#define NUMPIXELS       32          // featherwing
+Adafruit_NeoPixel statusBlock = Adafruit_NeoPixel(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define STATUS_WATER_LEVEL  0
 #define STATUS_BUS_ERROR    1
@@ -23,16 +23,16 @@ Adafruit_NeoPixel statusStrip = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_
 //#define STATUS_
 //#define STATUS_
 
-uint32_t STATUS_COLOUR_OFF = statusStrip.Color(0, 0, 0);
-uint32_t STATUS_WATER_LEVEL_COLOUR = statusStrip.Color(0, 0, 255);
-uint32_t STATUS_BUS_ERROR_COLOUR = statusStrip.Color(255, 0, 0);
+uint32_t STATUS_COLOUR_OFF = statusBlock.Color(0, 0, 0);
+uint32_t STATUS_WATER_LEVEL_COLOUR = statusBlock.Color(0, 0, 255);
+uint32_t STATUS_ERROR_COLOUR = statusBlock.Color(255, 0, 0);
 
 
 #define NUM_CHANNELS    3
-Channel channels[NUM_CHANNELS] = {
-                        { 0, OFF, 0 }, // WATER
-                        { 0, OFF, 0 }, // COFFEE
-                        { 0, OFF, 0 }  // HEATING
+Channel channel[NUM_CHANNELS] = {
+                        { statusBlock.Color(0, 0, 255), OFF, 0, STATUS_WATER_LEVEL }, // WATER
+                        { 0, OFF, 0, 1 }, // COFFEE
+                        { 0, OFF, 0, 2 }  // HEATING
                       };
 
 /* DEBUG MODE */
@@ -64,7 +64,7 @@ void setup() {
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
-    statusStrip.begin();
+    statusBlock.begin();
 
     Wire.begin();
 }
@@ -78,10 +78,8 @@ void loop() {
     ArduinoOTA.handle();
 
     int waterlevel = getWaterLevel(payload);
-    if (waterlevel == -1) {
-        setStatus(STATUS_BUS_ERROR, 0);
-        waterlevel = getDebugWaterLevel();
-    }
+    setStatus(STATUS_WATER_LEVEL, waterlevel);
+    
     Serial.print("Water: "); Serial.println(waterlevel);
     setStatus(STATUS_WATER_LEVEL, waterlevel);
     
@@ -111,31 +109,29 @@ int getWaterLevel(char* reg) {
             return -1;
         }
     }
-}
-
-int getDebugWaterLevel() {
-    pinMode(WATER_LEVEL_DEBUG_PIN, INPUT);
-    digitalWrite(WATER_LEVEL_DEBUG_PIN, HIGH);  // turn on pull-up resistor
-    return digitalRead(WATER_LEVEL_DEBUG_PIN);
+    return -1;
 }
 
 void setStatus(int statusBit, int val) {
 
     switch (statusBit) {
         case STATUS_WATER_LEVEL:
-            if (val == 1) {
-                statusStrip.setPixelColor(STATUS_WATER_LEVEL, STATUS_WATER_LEVEL_COLOUR);
-            }
-            else {
-                statusStrip.setPixelColor(STATUS_WATER_LEVEL, STATUS_COLOUR_OFF);
-            }
-            statusStrip.show();
-            break;
-        case STATUS_BUS_ERROR:
-            statusStrip.setPixelColor(STATUS_BUS_ERROR, STATUS_BUS_ERROR_COLOUR);
-            statusStrip.show();
+            setBlockChunkToColor(STATUS_WATER_LEVEL, val);
+            statusBlock.show();
             break;
     }
+}
+
+void setBlockChunkToColor(int index, int val) {
+    int block = index;
+    uint32_t color = channel[index].color;
+    statusBlock.setPixelColor((block * 2) + 0, color); 
+    if (val == -1) {
+        color = STATUS_ERROR_COLOUR;
+    }
+    statusBlock.setPixelColor((block * 2) + 1, color); 
+    statusBlock.setPixelColor((block * 2) + 8, color); 
+    statusBlock.setPixelColor((block * 2) + 9, color); 
 }
 
 bool stateChanged() {

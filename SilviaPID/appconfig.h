@@ -32,6 +32,7 @@ struct Channel {
     uint32_t color;
     char state;
     int pin;
+    int index;
 };
 
 

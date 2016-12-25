@@ -3,7 +3,7 @@
 
 #define INPUT_PIN   12
 
-bool report = false;
+bool i2cReadByMaster = false;
 int val = 0;
 
 void setup() {
@@ -23,7 +23,7 @@ void loop() {
 
     delay(200);
 
-    if (report) {
+    if (i2cReadByMaster) {
         Serial.print("Sending "); Serial.println(val);
     }
 }
@@ -32,6 +32,6 @@ void requestEvent() {
 
     val = digitalRead(INPUT_PIN);
     Wire.write(val);
-    report = true;
+    i2cReadByMaster = true;
 }
 
