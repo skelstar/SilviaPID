@@ -30,7 +30,8 @@ const char NA	= '-';
 struct Channel {
     //int index;
     uint32_t color;
-    char state;
+    uint32_t colorOff;
+    int state;
     int pin;
     int index;
 };

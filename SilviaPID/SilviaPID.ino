@@ -9,8 +9,6 @@
 #include "appconfig.h"
 #include "wificonfig.h"
 
-#include <Wire.h>
-
 // --- Status Strip ---
 
 #define PIXEL_PIN       15
@@ -18,10 +16,8 @@
 Adafruit_NeoPixel statusBlock = Adafruit_NeoPixel(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define STATUS_WATER_LEVEL  0
-#define STATUS_BUS_ERROR    1
-//#define STATUS_
-//#define STATUS_
-//#define STATUS_
+//#define STATUS_BUS_ERROR    1
+#define STATUS_FLASHING     1
 
 uint32_t STATUS_COLOUR_OFF = statusBlock.Color(0, 0, 0);
 uint32_t STATUS_WATER_LEVEL_COLOUR = statusBlock.Color(0, 0, 255);
@@ -30,9 +26,15 @@ uint32_t STATUS_ERROR_COLOUR = statusBlock.Color(255, 0, 0);
 
 #define NUM_CHANNELS    3
 Channel channel[NUM_CHANNELS] = {
-                        { statusBlock.Color(0, 0, 255), OFF, 0, STATUS_WATER_LEVEL }, // WATER
-                        { 0, OFF, 0, 1 }, // COFFEE
-                        { 0, OFF, 0, 2 }  // HEATING
+                        { 
+                            statusBlock.Color(0, 0, 255), 
+                            statusBlock.Color(0, 0, 1), 
+                            -2, 
+                            0, 
+                            STATUS_WATER_LEVEL 
+                        }, // WATER
+                        { 0, -2, 0, 1 }, // COFFEE
+                        { 0, -2, 0, 2 }  // HEATING
                       };
 
 /* DEBUG MODE */
@@ -48,6 +50,18 @@ bool state = 1;
 long ticks = 0;
 
 int counter = 1;
+bool ledState = false;
+long lastToggled = millis();
+
+EventManager gEM;
+
+void serviceEvent(int st);
+int getWaterLevel();
+void setStatus(int statusBit, int val);
+void setBlockChunkToColor(int index, int val);
+void listener_WaterLevel( int event, int waterlevel );
+void listener_Flashing(int event, bool ledSt);
+void setupOTA(char* host);
 
 /* ----------------------------------------------------------- */
 void setup() {
@@ -67,6 +81,13 @@ void setup() {
     statusBlock.begin();
 
     Wire.begin();
+
+    gEM.addListener( EventManager::kEventUser0, listener_WaterLevel);
+    gEM.addListener( EventManager::kEventUser1, listener_Flashing);
+    Serial.print("Number of listners: ");
+    Serial.println(gEM.numListeners());
+
+    channel[STATUS_WATER_LEVEL].state = getWaterLevel();
 }
 
 /* ----------------------------------------------------------- */
@@ -77,20 +98,38 @@ void loop() {
 
     ArduinoOTA.handle();
 
-    int waterlevel = getWaterLevel(payload);
-    setStatus(STATUS_WATER_LEVEL, waterlevel);
-    
-    Serial.print("Water: "); Serial.println(waterlevel);
-    setStatus(STATUS_WATER_LEVEL, waterlevel);
-    
-    //getInputsFromHub(payload);
-    
-    //processPacket(payload);
+    gEM.processEvent();
+
+    serviceEvent(STATUS_WATER_LEVEL);
+    serviceEvent(STATUS_FLASHING);
 
     delay(200);
 }
 
-int getWaterLevel(char* reg) {
+void serviceEvent(int st) {
+
+    switch (st) {
+        
+        case STATUS_WATER_LEVEL: {
+                int waterlevel = getWaterLevel();
+                if (channel[STATUS_WATER_LEVEL].state != waterlevel) {
+                    channel[STATUS_WATER_LEVEL].state = waterlevel;
+                    gEM.queueEvent(EventManager::kEventUser0, waterlevel);
+                }
+            }
+            break;
+        case STATUS_FLASHING: {
+            if ((millis() - lastToggled) > 1000) {
+                gEM.queueEvent(EventManager::kEventUser1, ledState);
+                lastToggled = millis();
+            }
+            }
+            break;
+            
+    }
+}
+
+int getWaterLevel() {
 
     Wire.requestFrom(WATER_I2C, 1);
 
@@ -124,7 +163,7 @@ void setStatus(int statusBit, int val) {
 
 void setBlockChunkToColor(int index, int val) {
     int block = index;
-    uint32_t color = channel[index].color;
+    uint32_t color = val == 1 ? channel[index].color : channel[index].colorOff;
     statusBlock.setPixelColor((block * 2) + 0, color); 
     if (val == -1) {
         color = STATUS_ERROR_COLOUR;
@@ -132,6 +171,22 @@ void setBlockChunkToColor(int index, int val) {
     statusBlock.setPixelColor((block * 2) + 1, color); 
     statusBlock.setPixelColor((block * 2) + 8, color); 
     statusBlock.setPixelColor((block * 2) + 9, color); 
+}
+
+/* ----------------------------------------------------------- */
+void listener_WaterLevel( int event, int waterlevel ) {
+    Serial.println("Water Level Listener");
+        
+    Serial.print("Water: "); Serial.println(waterlevel);
+    setStatus(STATUS_WATER_LEVEL, waterlevel);
+}
+
+void listener_Flashing(int event, int ledSt) {
+    Serial.print("Flashing Listener: "); Serial.println(ledState);
+
+    int val = ledState == 1 ? channel[STATUS_WATER_LEVEL].state : 0;
+    setStatus(STATUS_WATER_LEVEL, ledState);
+    ledState = ledState == 1 ? 0 : 1;
 }
 
 bool stateChanged() {
