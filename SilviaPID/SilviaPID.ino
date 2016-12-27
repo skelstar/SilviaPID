@@ -113,14 +113,16 @@ void serviceEvent(int st) {
     switch (st) {
         
         case WATER_LOW: {
-                int waterlevel = getChannelState(WATER_I2C);
-                if (channel[WATER_LOW].state != waterlevel) {
-                    channel[WATER_LOW].state = waterlevel;
-                    gEM.queueEvent(channel[WATER_LOW].eventCode, waterlevel);
-                }
+            delay(50);
+            int waterlevel = getChannelState(WATER_I2C);
+            if (channel[WATER_LOW].state != waterlevel) {
+                channel[WATER_LOW].state = waterlevel;
+                gEM.queueEvent(channel[WATER_LOW].eventCode, waterlevel);
+            }
             }
             break;
         case COFFEE_SW: {
+            delay(50);
             int coffeeSwState = getChannelState(COFFEE_SW_I2C);
             if (channel[COFFEE_SW].state != coffeeSwState) {
                 channel[COFFEE_SW].state = coffeeSwState;
