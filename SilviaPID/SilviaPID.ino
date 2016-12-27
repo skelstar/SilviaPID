@@ -15,36 +15,34 @@
 #define NUMPIXELS       32          // featherwing
 Adafruit_NeoPixel statusBlock = Adafruit_NeoPixel(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-#define STATUS_WATER_LEVEL  0
-//#define STATUS_BUS_ERROR    1
-#define STATUS_FLASHING     1
+#define WATER_LOW   0
+#define COFFEE_SW   1
+#define STATUS_FLASHING     10
 
 uint32_t STATUS_COLOUR_OFF = statusBlock.Color(0, 0, 0);
-uint32_t STATUS_WATER_LEVEL_COLOUR = statusBlock.Color(0, 0, 255);
+//uint32_t WATER_LOW_COLOUR = statusBlock.Color(0, 0, 255);
 uint32_t STATUS_ERROR_COLOUR = statusBlock.Color(255, 0, 0);
 
 
 #define NUM_CHANNELS    3
 Channel channel[NUM_CHANNELS] = {
                         { 
-                            statusBlock.Color(0, 0, 255), 
-                            statusBlock.Color(0, 0, 1), 
-                            -2, 
-                            0, 
-                            STATUS_WATER_LEVEL 
-                        }, // WATER
-                        { 0, -2, 0, 1 }, // COFFEE
-                        { 0, -2, 0, 2 }  // HEATING
-                      };
-
-/* DEBUG MODE */
-#define WATER_LEVEL_DEBUG_PIN   16                      
+                            WATER_LOW,                      // index
+                            statusBlock.Color(0, 0, 255),   // color
+                            statusBlock.Color(0, 0, 1),     // colorOff
+                            -2,                              // state
+                            EventManager::kEventUser0       // eventCode
+                        },
+                        { 
+                            COFFEE_SW,                      // index
+                            statusBlock.Color(153, 76, 0),  // color
+                            statusBlock.Color(2, 1, 0),     // colorOff
+                            -2,                              // state
+                            EventManager::kEventUser2       // eventCode
+                        }
+                    };
 
 /* ----------------------------------------------------------- */
-
-#define led_pin         0
-#define LED_ON          LOW
-#define LED_OFF         HIGH
 
 bool state = 1;
 long ticks = 0;
@@ -56,11 +54,11 @@ long lastToggled = millis();
 EventManager gEM;
 
 void serviceEvent(int st);
-int getWaterLevel();
-void setStatus(int statusBit, int val);
+int getChannelState();
+void updateStatusLeds(int statusBit, int val);
 void setBlockChunkToColor(int index, int val);
 void listener_WaterLevel( int event, int waterlevel );
-void listener_Flashing(int event, bool ledSt);
+void listener_Flashing(int event, int statusBit);
 void setupOTA(char* host);
 
 /* ----------------------------------------------------------- */
@@ -70,9 +68,6 @@ void setup() {
     Serial.println("Booting");
 
     setupOTA("SilviaPID");
-
-    pinMode(led_pin, OUTPUT);
-    digitalWrite(led_pin, LED_ON);
     
     Serial.println("Ready");
     Serial.print("IP address: ");
@@ -82,12 +77,18 @@ void setup() {
 
     Wire.begin();
 
-    gEM.addListener( EventManager::kEventUser0, listener_WaterLevel);
-    gEM.addListener( EventManager::kEventUser1, listener_Flashing);
+    gEM.addListener( channel[WATER_LOW].eventCode, listener_WaterLevel);
+    //gEM.addListener( EventManager::kEventUser1, listener_Flashing);
+    gEM.addListener(channel[COFFEE_SW].eventCode, listener_CoffeeSw);
+    
     Serial.print("Number of listners: ");
     Serial.println(gEM.numListeners());
 
-    channel[STATUS_WATER_LEVEL].state = getWaterLevel();
+    // get init states
+    channel[WATER_LOW].state = getChannelState(WATER_LOW);
+    listener_WaterLevel(channel[WATER_LOW].eventCode, channel[WATER_LOW].state);
+    channel[COFFEE_SW].state = getChannelState(COFFEE_SW);
+    listener_CoffeeSw(channel[COFFEE_SW].eventCode, channel[COFFEE_SW].state);
 }
 
 /* ----------------------------------------------------------- */
@@ -100,24 +101,33 @@ void loop() {
 
     gEM.processEvent();
 
-    serviceEvent(STATUS_WATER_LEVEL);
-    serviceEvent(STATUS_FLASHING);
+    serviceEvent(WATER_LOW);
+    //serviceEvent(STATUS_FLASHING);
+    serviceEvent(COFFEE_SW);
 
-    delay(200);
+    delay(500);
 }
 
 void serviceEvent(int st) {
 
     switch (st) {
         
-        case STATUS_WATER_LEVEL: {
-                int waterlevel = getWaterLevel();
-                if (channel[STATUS_WATER_LEVEL].state != waterlevel) {
-                    channel[STATUS_WATER_LEVEL].state = waterlevel;
-                    gEM.queueEvent(EventManager::kEventUser0, waterlevel);
+        case WATER_LOW: {
+                int waterlevel = getChannelState(WATER_I2C);
+                if (channel[WATER_LOW].state != waterlevel) {
+                    channel[WATER_LOW].state = waterlevel;
+                    gEM.queueEvent(channel[WATER_LOW].eventCode, waterlevel);
                 }
             }
             break;
+        case COFFEE_SW: {
+            int coffeeSwState = getChannelState(COFFEE_SW_I2C);
+            if (channel[COFFEE_SW].state != coffeeSwState) {
+                channel[COFFEE_SW].state = coffeeSwState;
+                gEM.queueEvent(channel[COFFEE_SW].eventCode, channel[COFFEE_SW].state);
+            }
+            }
+            break;               
         case STATUS_FLASHING: {
             if ((millis() - lastToggled) > 1000) {
                 gEM.queueEvent(EventManager::kEventUser1, ledState);
@@ -129,13 +139,12 @@ void serviceEvent(int st) {
     }
 }
 
-int getWaterLevel() {
+int getChannelState(int i2caddress) {
+    Wire.requestFrom(i2caddress, 1);
 
-    Wire.requestFrom(WATER_I2C, 1);
-
-    int i = 0;
     while (Wire.available()) {
         byte c = Wire.read();
+        
         Serial.print("Recieved: ");
         if (c == 1) {
             Serial.println("1");
@@ -148,14 +157,18 @@ int getWaterLevel() {
             return -1;
         }
     }
-    return -1;
+    return -1;    
 }
 
-void setStatus(int statusBit, int val) {
+void updateStatusLeds(int statusBit, int val) {
 
     switch (statusBit) {
-        case STATUS_WATER_LEVEL:
-            setBlockChunkToColor(STATUS_WATER_LEVEL, val);
+        case WATER_LOW:
+            setBlockChunkToColor(WATER_LOW, val);
+            statusBlock.show();
+            break;
+        case COFFEE_SW:
+            setBlockChunkToColor(COFFEE_SW, val);
             statusBlock.show();
             break;
     }
@@ -174,70 +187,26 @@ void setBlockChunkToColor(int index, int val) {
 }
 
 /* ----------------------------------------------------------- */
-void listener_WaterLevel( int event, int waterlevel ) {
+void listener_WaterLevel( int event, int state ) {
     Serial.println("Water Level Listener");
         
-    Serial.print("Water: "); Serial.println(waterlevel);
-    setStatus(STATUS_WATER_LEVEL, waterlevel);
+    Serial.print("Water: "); Serial.println(state);
+    updateStatusLeds(WATER_LOW, state);
 }
 
-void listener_Flashing(int event, int ledSt) {
-    Serial.print("Flashing Listener: "); Serial.println(ledState);
+void listener_CoffeeSw( int event, int state ) {
+    Serial.println("Coffee Sw Listener");
+        
+    Serial.print("Coffee_Sw: "); Serial.println(state);
+    updateStatusLeds(COFFEE_SW, state);
+}
 
-    int val = ledState == 1 ? channel[STATUS_WATER_LEVEL].state : 0;
-    setStatus(STATUS_WATER_LEVEL, ledState);
+void listener_Flashing(int event, int statusBit) {
+    Serial.print("Flashing Listener: "); Serial.println(statusBit);
+
+    int val = ledState == 1 ? channel[WATER_LOW].state : 0;
+    updateStatusLeds(WATER_LOW, ledState);
     ledState = ledState == 1 ? 0 : 1;
-}
-
-bool stateChanged() {
-    
-    if (ticks < millis() - 500) {
-        state = !state;
-        ticks = millis();
-        return true;
-    }
-    return false;
-}
-
-void getInputsFromHub(char* reg) {
-
-    Wire.requestFrom(HUB_I2C, PAYLOAD_SIZE);
-    char payload[PAYLOAD_SIZE];
-
-    int i = 0;
-    while (Wire.available()) {
-        char c = Wire.read();
-        if (i == 0)
-            Serial.print("Payload: '");
-        Serial.print(c);
-        reg[i++] = c;
-    }
-    if (i > 0)
-        Serial.println("' end");
-}
-
-void processPacket(String packet) {
-    
-    if (packet == "")
-        return; 
-
-    for (int i = 0; i < NUM_CHANNELS; i++) {
-
-        if (i == WATER) {
-            if (packet[i] == ON) {
-//                lcd.setCursor(3, LCD_ROW_BOTTOM);
-//                lcd.print("Water Low");
-//                lcd.setRGB(0, 0, 255);  // BLUE
-            } else {
-//                lcd.setCursor(3, LCD_ROW_BOTTOM);
-//                lcd.print("         ");
-//                lcd.setRGB(0, 255, 0);  // GREEN
-            }
-        }
-        else {
-        }
-    }
-    return;    
 }
 
 void setupOTA(char* host) {

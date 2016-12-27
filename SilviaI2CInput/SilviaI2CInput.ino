@@ -1,7 +1,7 @@
 #include <TinyWireS.h>
 #include "appconfig.h"
 
-#define INPUT_PIN   1   // Trinket is pin 1
+#define INPUT_PIN   1   // Trinket is pin 3 (1 is tied to LED)
 
 bool i2cReadEvent = false;
 int val = 0;
