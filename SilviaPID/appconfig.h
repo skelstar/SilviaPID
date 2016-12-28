@@ -16,6 +16,9 @@ const char NA	= '-';
 #define HUB_I2C         8
 #define WATER_I2C       9
 #define PAYLOAD_SIZE    5
+
+#define I2C_NO_RESPONSE         -10
+#define I2C_UNKNOWN_RESPONSE    -11
 //
 //// payload register
 //#define WATER		0   // BLUE
@@ -34,6 +37,7 @@ struct Channel {
     uint32_t colorOff;
     int state;
     int eventCode;
+    int onState;        // either 1, or 0
 };
 
 

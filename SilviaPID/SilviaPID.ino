@@ -20,25 +20,27 @@ Adafruit_NeoPixel statusBlock = Adafruit_NeoPixel(NUMPIXELS, PIXEL_PIN, NEO_GRB 
 #define STATUS_FLASHING     10
 
 uint32_t STATUS_COLOUR_OFF = statusBlock.Color(0, 0, 0);
-//uint32_t WATER_LOW_COLOUR = statusBlock.Color(0, 0, 255);
 uint32_t STATUS_ERROR_COLOUR = statusBlock.Color(255, 0, 0);
+uint32_t STATUS_UNKNOWN_COLOUR = statusBlock.Color(0, 0, 0);
 
 
 #define NUM_CHANNELS    3
 Channel channel[NUM_CHANNELS] = {
                         { 
                             WATER_LOW,                      // index
-                            statusBlock.Color(0, 0, 255),   // color
+                            statusBlock.Color(0, 0, 127),   // color
                             statusBlock.Color(0, 0, 1),     // colorOff
                             -2,                              // state
-                            EventManager::kEventUser0       // eventCode
-                        },
+                            EventManager::kEventUser0,       // eventCode
+                            0                               // onVal
+                       },
                         { 
                             COFFEE_SW,                      // index
                             statusBlock.Color(153, 76, 0),  // color
                             statusBlock.Color(2, 1, 0),     // colorOff
                             -2,                              // state
-                            EventManager::kEventUser2       // eventCode
+                            EventManager::kEventUser2,       // eventCode
+                            1                               // onVal
                         }
                     };
 
@@ -105,7 +107,7 @@ void loop() {
     //serviceEvent(STATUS_FLASHING);
     serviceEvent(COFFEE_SW);
 
-    delay(500);
+    delay(100);
 }
 
 void serviceEvent(int st) {
@@ -113,7 +115,6 @@ void serviceEvent(int st) {
     switch (st) {
         
         case WATER_LOW: {
-            delay(50);
             int waterlevel = getChannelState(WATER_I2C);
             if (channel[WATER_LOW].state != waterlevel) {
                 channel[WATER_LOW].state = waterlevel;
@@ -122,11 +123,10 @@ void serviceEvent(int st) {
             }
             break;
         case COFFEE_SW: {
-            delay(50);
             int coffeeSwState = getChannelState(COFFEE_SW_I2C);
             if (channel[COFFEE_SW].state != coffeeSwState) {
                 channel[COFFEE_SW].state = coffeeSwState;
-                gEM.queueEvent(channel[COFFEE_SW].eventCode, channel[COFFEE_SW].state);
+                gEM.queueEvent(channel[COFFEE_SW].eventCode, coffeeSwState);
             }
             }
             break;               
@@ -156,10 +156,10 @@ int getChannelState(int i2caddress) {
             return 0;
         } else {
             Serial.println("?");
-            return -1;
+            return I2C_UNKNOWN_RESPONSE;
         }
     }
-    return -1;    
+    return I2C_NO_RESPONSE;    
 }
 
 void updateStatusLeds(int statusBit, int val) {
@@ -177,11 +177,15 @@ void updateStatusLeds(int statusBit, int val) {
 }
 
 void setBlockChunkToColor(int index, int val) {
+    
     int block = index;
-    uint32_t color = val == 1 ? channel[index].color : channel[index].colorOff;
+    int onVal = channel[index].onState;
+    uint32_t color = val == onVal ? channel[index].color : channel[index].colorOff;
     statusBlock.setPixelColor((block * 2) + 0, color); 
-    if (val == -1) {
+    if (val == I2C_NO_RESPONSE) {
         color = STATUS_ERROR_COLOUR;
+    } else if (val == I2C_UNKNOWN_RESPONSE) {
+        color = STATUS_UNKNOWN_COLOUR;
     }
     statusBlock.setPixelColor((block * 2) + 1, color); 
     statusBlock.setPixelColor((block * 2) + 8, color); 
