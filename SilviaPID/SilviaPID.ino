@@ -17,6 +17,8 @@ Adafruit_NeoPixel statusBlock = Adafruit_NeoPixel(NUMPIXELS, PIXEL_PIN, NEO_GRB 
 
 #define WATER_LOW   0
 #define COFFEE_SW   1
+#define FUEL_BAR   2
+
 #define STATUS_FLASHING     10
 
 uint32_t STATUS_COLOUR_OFF = statusBlock.Color(0, 0, 0);
@@ -33,7 +35,7 @@ Channel channel[NUM_CHANNELS] = {
                             -2,                              // state
                             EventManager::kEventUser0,       // eventCode
                             0                               // onVal
-                       },
+                        },
                         { 
                             COFFEE_SW,                      // index
                             statusBlock.Color(153, 76, 0),  // color
@@ -41,7 +43,15 @@ Channel channel[NUM_CHANNELS] = {
                             -2,                              // state
                             EventManager::kEventUser2,       // eventCode
                             1                               // onVal
-                        }
+                        },
+                        { 
+                            FUEL_BAR,                      // index
+                            statusBlock.Color(0, 0, 0),  // color
+                            statusBlock.Color(0, 0, 0),     // colorOff
+                            0,                              // state
+                            EventManager::kEventUser3,       // eventCode
+                            1                               // onVal
+                        },
                     };
 
 /* ----------------------------------------------------------- */
@@ -52,6 +62,7 @@ long ticks = 0;
 int counter = 1;
 bool ledState = false;
 long lastToggled = millis();
+long fuelBarTick = 0;
 
 EventManager gEM;
 
@@ -106,6 +117,7 @@ void loop() {
     serviceEvent(WATER_LOW);
     //serviceEvent(STATUS_FLASHING);
     serviceEvent(COFFEE_SW);
+    serviceEvent(FUEL_BAR);
 
     delay(100);
 }
@@ -127,9 +139,26 @@ void serviceEvent(int st) {
             if (channel[COFFEE_SW].state != coffeeSwState) {
                 channel[COFFEE_SW].state = coffeeSwState;
                 gEM.queueEvent(channel[COFFEE_SW].eventCode, coffeeSwState);
+
+                if (channel[COFFEE_SW].state == channel[COFFEE_SW].onState) {
+                    // start counter
+                    fuelBarTick = millis();
+                    gEM.addListener(channel[FUEL_BAR].eventCode, listener_FuelBar);
+                } else {
+                    gEM.removeListener(channel[FUEL_BAR].eventCode, listener_FuelBar);
+                    initFuelBar();
+                }                
             }
             }
-            break;               
+            break;   
+        case FUEL_BAR: {
+            long tick = millis();
+            if ((tick - fuelBarTick) > 1000) {
+                gEM.queueEvent(channel[FUEL_BAR].eventCode, 0);
+                fuelBarTick = tick;
+            }
+            }
+            break;        
         case STATUS_FLASHING: {
             if ((millis() - lastToggled) > 1000) {
                 gEM.queueEvent(EventManager::kEventUser1, ledState);
@@ -137,7 +166,6 @@ void serviceEvent(int st) {
             }
             }
             break;
-            
     }
 }
 
@@ -147,19 +175,58 @@ int getChannelState(int i2caddress) {
     while (Wire.available()) {
         byte c = Wire.read();
         
-        Serial.print("Recieved: ");
         if (c == 1) {
-            Serial.println("1");
             return 1;
         } else if (c == 0) {
-            Serial.println("0");
             return 0;
         } else {
-            Serial.println("?");
             return I2C_UNKNOWN_RESPONSE;
         }
     }
     return I2C_NO_RESPONSE;    
+}
+
+void updateFuelBar(int seconds) {
+
+    int level1[] = {31, 23, 30, 22, 29, 21};
+    int lowsteps[] = { 0, 4, 8, 12, 16, 20};
+    int highsteps[] = { 22, 24, 26, 28, 30 };
+
+    uint32_t orange = statusBlock.Color(32,16,0);  // yellow=statusBlock.Color(127,127,0)
+    uint32_t yellow = statusBlock.Color(32,32,0);  // yellow=statusBlock.Color(127,127,0)
+    uint32_t green = statusBlock.Color(0,64,0);
+    uint32_t red = statusBlock.Color(64, 0, 0);
+   
+    for (int i = 0; i< 6; i++) {
+        if (seconds >= lowsteps[i]) {
+            statusBlock.setPixelColor(level1[i], orange); 
+        }
+    }
+
+    for (int i = 0; i <= 4; i++) {
+        if (seconds >= highsteps[i]) {
+            statusBlock.setPixelColor(16+4-i, green); 
+            statusBlock.setPixelColor(24+4-i, green); 
+        }
+    }
+
+    if (seconds > 30) {
+        // make whole bar red
+        for (int i=0; i<8; i++) {
+            statusBlock.setPixelColor(16+i, red); 
+            statusBlock.setPixelColor(24+i, red); 
+        }
+    }
+    
+    statusBlock.show();
+}
+
+void initFuelBar() {
+    for (int i = 16; i < 32; i++) {
+        statusBlock.setPixelColor(i, statusBlock.Color(0, 0, 0)); 
+    }
+    statusBlock.show();
+    channel[FUEL_BAR].state = 0;
 }
 
 void updateStatusLeds(int statusBit, int val) {
@@ -205,6 +272,13 @@ void listener_CoffeeSw( int event, int state ) {
         
     Serial.print("Coffee_Sw: "); Serial.println(state);
     updateStatusLeds(COFFEE_SW, state);
+}
+
+void listener_FuelBar(int event, int state) {
+    // time based, increment some variable
+    Serial.print("FuelBar Listener: "); Serial.println(channel[FUEL_BAR].state);
+    channel[FUEL_BAR].state++;      // increment fuel val
+    updateFuelBar(channel[FUEL_BAR].state); 
 }
 
 void listener_Flashing(int event, int statusBit) {
