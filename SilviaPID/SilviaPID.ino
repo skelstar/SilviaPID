@@ -9,6 +9,12 @@
 #include "appconfig.h"
 #include "wificonfig.h"
 
+/* ----------------------------------------------------------- */
+
+char versionText[] = "SilvaPID v1.1.0";
+
+/* ----------------------------------------------------------- */
+
 // --- Status Strip ---
 
 #define PIXEL_PIN       15
@@ -30,7 +36,7 @@ uint32_t STATUS_UNKNOWN_COLOUR = statusBlock.Color(0, 0, 0);
 Channel channel[NUM_CHANNELS] = {
                         { 
                             WATER_LOW,                      // index
-                            statusBlock.Color(0, 0, 127),   // color
+                            statusBlock.Color(0, 0, 50),   // color
                             statusBlock.Color(0, 0, 1),     // colorOff
                             -2,                              // state
                             EventManager::kEventUser0,       // eventCode
@@ -38,15 +44,15 @@ Channel channel[NUM_CHANNELS] = {
                         },
                         { 
                             COFFEE_SW,                      // index
-                            statusBlock.Color(153, 76, 0),  // color
+                            statusBlock.Color(50, 15, 0),  // color
                             statusBlock.Color(2, 1, 0),     // colorOff
                             -2,                              // state
                             EventManager::kEventUser2,       // eventCode
                             1                               // onVal
                         },
                         { 
-                            FUEL_BAR,                      // index
-                            statusBlock.Color(0, 0, 0),  // color
+                            FUEL_BAR,                       // index
+                            statusBlock.Color(0, 0, 0),     // color
                             statusBlock.Color(0, 0, 0),     // colorOff
                             0,                              // state
                             EventManager::kEventUser3,       // eventCode
@@ -79,12 +85,9 @@ void setup() {
     
     Serial.begin(9600);
     Serial.println("Booting");
-
-    setupOTA("SilviaPID");
     
     Serial.println("Ready");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+    Serial.println(versionText);
 
     statusBlock.begin();
 
@@ -102,6 +105,11 @@ void setup() {
     listener_WaterLevel(channel[WATER_LOW].eventCode, channel[WATER_LOW].state);
     channel[COFFEE_SW].state = getChannelState(COFFEE_SW);
     listener_CoffeeSw(channel[COFFEE_SW].eventCode, channel[COFFEE_SW].state);
+
+    setupOTA("SilviaPID");
+
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
 }
 
 /* ----------------------------------------------------------- */
@@ -192,10 +200,10 @@ void updateFuelBar(int seconds) {
     int lowsteps[] = { 0, 4, 8, 12, 16, 20};
     int highsteps[] = { 22, 24, 26, 28, 30 };
 
-    uint32_t orange = statusBlock.Color(32,16,0);  // yellow=statusBlock.Color(127,127,0)
-    uint32_t yellow = statusBlock.Color(32,32,0);  // yellow=statusBlock.Color(127,127,0)
-    uint32_t green = statusBlock.Color(0,64,0);
-    uint32_t red = statusBlock.Color(64, 0, 0);
+    uint32_t orange = statusBlock.Color(16,8,0);  // yellow=statusBlock.Color(127,127,0)
+    uint32_t yellow = statusBlock.Color(16,16,0);  // yellow=statusBlock.Color(127,127,0)
+    uint32_t green = statusBlock.Color(0,32,0);
+    uint32_t red = statusBlock.Color(32, 0, 0);
    
     for (int i = 0; i< 6; i++) {
         if (seconds >= lowsteps[i]) {
@@ -247,16 +255,31 @@ void setBlockChunkToColor(int index, int val) {
     
     int block = index;
     int onVal = channel[index].onState;
+    
     uint32_t color = val == onVal ? channel[index].color : channel[index].colorOff;
-    statusBlock.setPixelColor((block * 2) + 0, color); 
+
+    int pixels[] = {
+        (block * 2) + 0,
+        (block * 2) + 1,
+        (block * 2) + 8,
+        (block * 2) + 9,
+    };
+
+    statusBlock.setPixelColor(pixels[0], color); 
+
     if (val == I2C_NO_RESPONSE) {
         color = STATUS_ERROR_COLOUR;
     } else if (val == I2C_UNKNOWN_RESPONSE) {
         color = STATUS_UNKNOWN_COLOUR;
+    } else if (val == onVal) {
+        color = channel[index].color;
+    } else {
+        color = STATUS_COLOUR_OFF;
     }
-    statusBlock.setPixelColor((block * 2) + 1, color); 
-    statusBlock.setPixelColor((block * 2) + 8, color); 
-    statusBlock.setPixelColor((block * 2) + 9, color); 
+
+    statusBlock.setPixelColor(pixels[1], color); 
+    statusBlock.setPixelColor(pixels[2], color); 
+    statusBlock.setPixelColor(pixels[3], color); 
 }
 
 /* ----------------------------------------------------------- */
