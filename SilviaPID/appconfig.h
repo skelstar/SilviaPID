@@ -1,4 +1,8 @@
 
+#define WIFI_OTA_NAME   "SilviaPID"
+#define WIFI_HOSTNAME   "SilviaPID"
+
+
 const char* STX = "STX";
 const char* ETX = "ETX";
 const char* ENQ = "ENQ";
@@ -19,25 +23,3 @@ const char NA	= '-';
 
 #define I2C_NO_RESPONSE         -10
 #define I2C_UNKNOWN_RESPONSE    -11
-//
-//// payload register
-//#define WATER		0   // BLUE
-//#define COFFEE 	    1   // GREEN
-//#define HEATING	    2   // RED
-//#define PUMP			3
-//#define BOILER			4
-
-//#define STEAMSWITCH 	2
-//#define WATERSWITCH 	3
-
-
-struct Channel {
-    int index;
-    uint32_t color;
-    uint32_t colorOff;
-    int state;
-    int eventCode;
-    int onState;        // either 1, or 0
-};
-
-
